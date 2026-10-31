@@ -1,0 +1,142 @@
+# Environnement de développement complet : Postgres, API et interface tournent ici, derrière le Makefile (make help).
+# Sur un clone neuf : make install, make db-migrate, make db-seed, make dev.
+name: reservations
+
+# Les services Node partagent l'image de développement : sources montées, dépendances et store de pnpm dans des volumes
+# nommés (jamais les node_modules de la machine), utilisateur de la machine (pas de fichier root dans le dépôt).
+x-node: &node
+  build: { context: ., dockerfile: apps/api/Dockerfile, target: dev }
+  image: reservations-dev
+  user: '${DEV_UID:-1000}:${DEV_GID:-1000}'
+  working_dir: /repo
+  volumes:
+    - .:/repo
+    - node_modules:/repo/node_modules
+    - api-node_modules:/repo/apps/api/node_modules
+    - web-node_modules:/repo/apps/web/node_modules
+
+x-db-env: &db-env
+  POSTGRES_USER: reservations
+  POSTGRES_PASSWORD: reservations
+
+services:
+  # Une fois, avant les autres : installe les dépendances dans les volumes, selon pnpm-lock.yaml.
+  install:
+    <<: *node
+    environment:
+      HOME: /tmp
+      CI: 'true'
+    command: ['pnpm', 'install', '--frozen-lockfile']
+
+  db:
+    image: postgres:16.13-alpine
+    environment:
+      <<: *db-env
+      POSTGRES_DB: reservations
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5435}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reservations -d reservations']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    <<: *node
+    environment: &api-env
+      HOME: /tmp
+      DATABASE_URL: postgresql://reservations:reservations@db:5432/reservations
+      PORT: 4030
+      APP_URL: http://localhost:${WEB_PORT:-3030}
+      FAKE_NOW: ${FAKE_NOW:-}
+    # L'horloge réglable part de FAKE_NOW au démarrage du conteneur, pas à chaque rechargement du code.
+    command:
+      ['sh', '-c', 'export FAKE_NOW_SINCE="$${FAKE_NOW_SINCE:-$$(date +%s)}"; exec pnpm --filter @reservations/api dev']
+    ports:
+      - '127.0.0.1:${API_PORT:-4030}:4030'
+    depends_on:
+      install: { condition: service_completed_successfully }
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4030/api/health || exit 1']
+      interval: 3s
+      retries: 60
+
+  web:
+    <<: *node
+    build: { context: ., dockerfile: apps/web/Dockerfile, target: dev }
+    image: reservations-web-dev
+    environment:
+      HOME: /tmp
+      NEXT_TELEMETRY_DISABLED: 1
+      # Adresse de l'API vue du navigateur, qui l'appelle directement.
+      API_URL: http://localhost:${API_PORT:-4030}
+      FAKE_NOW: ${FAKE_NOW:-}
+    command:
+      [
+        'sh',
+        '-c',
+        'export FAKE_NOW_SINCE="$${FAKE_NOW_SINCE:-$$(date +%s)}"; exec pnpm --filter @reservations/web dev --hostname 0.0.0.0',
+      ]
+    ports:
+      - '127.0.0.1:${WEB_PORT:-3030}:3030'
+    depends_on:
+      install: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3030/ || exit 1']
+      interval: 5s
+      retries: 60
+
+  # make db-migrate : applique les migrations en attente.
+  migrate:
+    <<: *node
+    environment: *api-env
+    command: ['pnpm', '--filter', '@reservations/api', 'db:migrate']
+    depends_on:
+      install: { condition: service_completed_successfully }
+      db: { condition: service_healthy }
+    profiles: [db]
+
+  # make db-seed : remplace les données par le jeu d'exemple.
+  seed:
+    <<: *node
+    environment: *api-env
+    command: ['pnpm', '--filter', '@reservations/api', 'db:seed']
+    depends_on:
+      install: { condition: service_completed_successfully }
+      db: { condition: service_healthy }
+    profiles: [db]
+
+  # Base jetable des tests d'intégration (tmpfs : rien ne survit à l'arrêt).
+  db-test:
+    image: postgres:16.13-alpine
+    environment:
+      <<: *db-env
+      POSTGRES_DB: reservations_test
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reservations -d reservations_test']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    profiles: [test]
+
+  # make test-db : tests d'intégration de l'API (*.int.test.ts) contre db-test.
+  api-test:
+    <<: *node
+    environment:
+      HOME: /tmp
+      DATABASE_URL: postgresql://reservations:reservations@db-test:5432/reservations_test
+    command: ['pnpm', '--filter', '@reservations/api', 'test:db']
+    depends_on:
+      install: { condition: service_completed_successfully }
+      db-test: { condition: service_healthy }
+    profiles: [test]
+
+volumes:
+  postgres-data:
+  node_modules:
+  api-node_modules:
+  web-node_modules:

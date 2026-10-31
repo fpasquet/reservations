@@ -1,5 +1,6 @@
 import { DomainError } from '../shared/domain-error.js';
-import type { BookingRequest } from './booking.js';
+import type { BookingRequest, SeriesRequest } from './booking.js';
+import { MAX_WEEKS, MIN_WEEKS } from './series-rules.js';
 
 export const TITLE_MAX_LENGTH = 80;
 const ATTENDEES_MAX = 100;
@@ -43,6 +44,24 @@ export function parseBookingRequest(body: unknown): BookingRequest {
   }
 
   return { roomId, title, attendees, startsAt: instant(fields, 'startsAt'), endsAt: instant(fields, 'endsAt') };
+}
+
+/**
+ * Corps de POST /bookings/series : celui d'une réservation, plus `weeks` (2 à 12) ; avec `preview: true`, la série
+ * n'est pas créée, l'API répond seulement avec ses occurrences.
+ */
+export function parseSeriesRequest(body: unknown): { request: SeriesRequest; preview: boolean } {
+  const request = parseBookingRequest(body);
+  const fields = body as Record<string, unknown>;
+
+  const weeks = fields['weeks'];
+  if (typeof weeks !== 'number' || !Number.isInteger(weeks) || weeks < MIN_WEEKS || weeks > MAX_WEEKS) {
+    throw invalid('weeks', `weeks must be an integer between ${MIN_WEEKS} and ${MAX_WEEKS}`);
+  }
+  const preview = fields['preview'];
+  if (preview !== undefined && typeof preview !== 'boolean') throw invalid('preview', 'preview must be a boolean');
+
+  return { request: { ...request, weeks }, preview: preview === true };
 }
 
 /** Le membre connecté, passé dans l'en-tête `X-Member-Id` (pas d'authentification pour l'instant). */

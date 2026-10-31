@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { isCancellable, splitByTime } from './bookings';
+import { groupBySeries, isCancellable, splitByTime } from './bookings';
 import type { Booking } from './types';
 
 const now = new Date('2026-11-03T09:00:00Z');
 
-function booking(id: number, startsAt: string, endsAt: string, cancelledAt: string | null = null): Booking {
+function booking(
+  id: number,
+  startsAt: string,
+  endsAt: string,
+  cancelledAt: string | null = null,
+  seriesId: number | null = null,
+): Booking {
   return {
     id,
     room: { id: 1, name: 'La Serre' },
@@ -15,6 +21,7 @@ function booking(id: number, startsAt: string, endsAt: string, cancelledAt: stri
     endsAt,
     createdAt: '2026-10-30T10:00:00Z',
     cancelledAt,
+    seriesId,
   };
 }
 
@@ -30,6 +37,28 @@ describe('splitByTime', () => {
 
   it('lists the past bookings, the most recent first', () => {
     expect(splitByTime([lastWeek, tomorrow, yesterday], now).past.map((b) => b.id)).toEqual([1, 4]);
+  });
+});
+
+describe('groupBySeries', () => {
+  const week = (id: number, day: string, seriesId: number | null) =>
+    booking(id, `${day}T09:00:00Z`, `${day}T10:00:00Z`, null, seriesId);
+
+  it('keeps bookings outside a series as they are', () => {
+    const single = week(1, '2026-11-04', null);
+    expect(groupBySeries([single])).toEqual([{ kind: 'single', booking: single }]);
+  });
+
+  it('gathers the occurrences of a series where its first one appears', () => {
+    const groups = groupBySeries([
+      week(1, '2026-11-03', 7),
+      week(2, '2026-11-04', null),
+      week(3, '2026-11-10', 7),
+      week(4, '2026-11-11', 8),
+    ]);
+    expect(
+      groups.map((group) => (group.kind === 'single' ? group.booking.id : group.bookings.map((b) => b.id))),
+    ).toEqual([[1, 3], 2, [4]]);
   });
 });
 

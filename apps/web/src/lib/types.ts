@@ -28,6 +28,8 @@ export interface Booking {
   endsAt: string;
   createdAt: string;
   cancelledAt: string | null;
+  /** La série hebdomadaire dont la réservation est une occurrence, s'il y en a une. */
+  seriesId: number | null;
 }
 
 export interface BookingRequest {
@@ -36,4 +38,21 @@ export interface BookingRequest {
   attendees: number | null;
   startsAt: string;
   endsAt: string;
+}
+
+export interface SeriesRequest extends BookingRequest {
+  weeks: number;
+}
+
+/** Une occurrence d'une série ; `conflict` est le code d'erreur de l'API qui l'empêche, null si elle est libre. */
+export interface Occurrence {
+  startsAt: string;
+  endsAt: string;
+  conflict: string | null;
+}
+
+export interface SeriesCreated {
+  seriesId: number;
+  bookings: Booking[];
+  conflicts: Occurrence[];
 }

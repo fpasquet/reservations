@@ -52,7 +52,7 @@ apps/
     src/
       rooms/              salles : GET /api/rooms?capacity=&equipment=, GET /api/rooms/:id
       members/            membres : GET /api/members
-      bookings/           réservations : règles, GET /api/bookings?date= ou ?memberId=, POST, DELETE /:id
+      bookings/           réservations : règles, GET /api/bookings?date= ou ?memberId=, POST, DELETE /:id, séries hebdomadaires (POST /series, DELETE /series/:id)
       shared/             heure de Paris, erreurs de l'API, horloge
       scripts/            migrate.ts, seed.ts
       testing/            dépôts en mémoire, application de test, préparation de la base de test

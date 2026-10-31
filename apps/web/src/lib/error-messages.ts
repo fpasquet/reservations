@@ -22,12 +22,17 @@ const MESSAGES: Record<string, string> = {
   NOT_YOUR_BOOKING: 'Seule la personne qui a réservé peut annuler.',
   ALREADY_STARTED: 'Cette réservation a déjà commencé, elle ne peut plus être annulée.',
   ALREADY_CANCELLED: 'Cette réservation est déjà annulée.',
+  WEEKEND: 'L’espace est fermé le week-end.',
+  SERIES_NOT_FOUND: 'Cette série de réservations n’existe pas ou plus.',
+  NO_FREE_OCCURRENCE: 'Aucune occurrence n’est libre : changez le jour, l’heure ou la salle.',
+  NO_UPCOMING_OCCURRENCE: 'Il ne reste aucune occurrence à venir à annuler dans cette série.',
 };
 
 const FIELD_MESSAGES: Record<string, string> = {
   title: 'Donnez un titre de 80 caractères au plus.',
   attendees: 'Indiquez un nombre de participants entre 1 et 100.',
   roomId: 'Choisissez une salle.',
+  weeks: 'Indiquez un nombre de semaines entre 2 et 12.',
 };
 
 /** Le message à afficher pour une erreur de l'API. */

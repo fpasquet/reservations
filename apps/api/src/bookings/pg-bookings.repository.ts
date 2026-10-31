@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type pg from 'pg';
 import { DATABASE } from '../database.js';
-import type { Booking, NewBooking } from './booking.js';
+import type { Booking, NewBooking, NewSeries, SeriesCreated } from './booking.js';
 import type { BookingsRepository } from './bookings.repository.js';
 
 interface BookingRow {
@@ -12,6 +12,7 @@ interface BookingRow {
   ends_at: Date;
   created_at: Date;
   cancelled_at: Date | null;
+  series_id: number | null;
   room_id: number;
   room_name: string;
   member_id: number;
@@ -19,7 +20,7 @@ interface BookingRow {
 }
 
 const SELECT = `
-  select b.id, b.title, b.attendees, b.starts_at, b.ends_at, b.created_at, b.cancelled_at,
+  select b.id, b.title, b.attendees, b.starts_at, b.ends_at, b.created_at, b.cancelled_at, b.series_id,
          r.id as room_id, r.name as room_name, m.id as member_id, m.full_name as member_name
   from booking b
   join room r on r.id = b.room_id
@@ -35,6 +36,7 @@ const toBooking = (row: BookingRow): Booking => ({
   endsAt: row.ends_at.toISOString(),
   createdAt: row.created_at.toISOString(),
   cancelledAt: row.cancelled_at?.toISOString() ?? null,
+  seriesId: row.series_id,
 });
 
 @Injectable()
@@ -75,6 +77,56 @@ export class PgBookingsRepository implements BookingsRepository {
   async cancel(id: number, at: Date): Promise<Booking> {
     await this.db.query('update booking set cancelled_at = $2 where id = $1', [id, at]);
     return this.mustGet(id);
+  }
+
+  async createSeries(series: NewSeries): Promise<SeriesCreated> {
+    const client = await this.db.connect();
+    try {
+      await client.query('begin');
+      const { rows } = await client.query<{ id: number }>(
+        'insert into booking_series (member_id, weeks) values ($1, $2) returning id',
+        [series.memberId, series.weeks],
+      );
+      const seriesId = rows[0]!.id;
+      const ids: number[] = [];
+      for (const slot of series.slots) {
+        const inserted = await client.query<{ id: number }>(
+          `insert into booking (room_id, member_id, title, attendees, starts_at, ends_at, series_id)
+           values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+          [series.roomId, series.memberId, series.title, series.attendees, slot.startsAt, slot.endsAt, seriesId],
+        );
+        ids.push(inserted.rows[0]!.id);
+      }
+      await client.query('commit');
+      const { rows: created } = await this.db.query<BookingRow>(`${SELECT} where b.id = any($1) order by b.starts_at`, [
+        ids,
+      ]);
+      return { seriesId, bookings: created.map(toBooking) };
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getSeriesOwner(seriesId: number): Promise<number | null> {
+    const { rows } = await this.db.query<{ member_id: number }>('select member_id from booking_series where id = $1', [
+      seriesId,
+    ]);
+    return rows[0]?.member_id ?? null;
+  }
+
+  async cancelSeriesAfter(seriesId: number, after: Date, at: Date): Promise<Booking[]> {
+    const { rows } = await this.db.query<{ id: number }>(
+      `update booking set cancelled_at = $3
+       where series_id = $1 and starts_at > $2 and cancelled_at is null returning id`,
+      [seriesId, after, at],
+    );
+    const { rows: cancelled } = await this.db.query<BookingRow>(`${SELECT} where b.id = any($1) order by b.starts_at`, [
+      rows.map((row) => row.id),
+    ]);
+    return cancelled.map(toBooking);
   }
 
   private async mustGet(id: number | undefined): Promise<Booking> {

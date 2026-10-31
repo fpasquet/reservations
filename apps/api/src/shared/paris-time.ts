@@ -65,11 +65,22 @@ export function parisInstant(date: string, minutes: number): Date {
   return new Date(wallClock - offsetAt(new Date(first)));
 }
 
+/** La date décalée de `days` jours (négatif : avant). */
+export function addDays(date: string, days: number): string {
+  const shifted = new Date(`${date}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
 /** Le jour qui suit cette date. */
 export function nextDate(date: string): string {
-  const next = new Date(`${date}T00:00:00Z`);
-  next.setUTCDate(next.getUTCDate() + 1);
-  return next.toISOString().slice(0, 10);
+  return addDays(date, 1);
+}
+
+/** Vrai pour un samedi ou un dimanche. */
+export function isWeekend(date: string): boolean {
+  const day = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return day === 0 || day === 6;
 }
 
 /** Début et fin (exclue) d'une journée de Paris, en instants. */

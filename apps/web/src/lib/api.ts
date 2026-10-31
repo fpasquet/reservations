@@ -1,4 +1,13 @@
-import type { Booking, BookingRequest, Equipment, Member, Room } from './types';
+import type {
+  Booking,
+  BookingRequest,
+  Equipment,
+  Member,
+  Occurrence,
+  Room,
+  SeriesCreated,
+  SeriesRequest,
+} from './types';
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -75,6 +84,22 @@ export const getMemberBookings = (memberId: number) => request<Booking[]>(`/book
 
 export const createBooking = (memberId: number, booking: BookingRequest) =>
   request<Booking>('/bookings', { method: 'POST', body: booking, memberId });
+
+/** Les occurrences de la série et leurs conflits, sans rien réserver. */
+export const previewSeries = (memberId: number, series: SeriesRequest) =>
+  request<{ occurrences: Occurrence[] }>('/bookings/series', {
+    method: 'POST',
+    body: { ...series, preview: true },
+    memberId,
+  }).then((result) => result.occurrences);
+
+/** Réserve les occurrences libres de la série, toutes ensemble. */
+export const createSeries = (memberId: number, series: SeriesRequest) =>
+  request<SeriesCreated>('/bookings/series', { method: 'POST', body: series, memberId });
+
+/** Annule les occurrences à venir de la série. */
+export const cancelSeries = (memberId: number, seriesId: number) =>
+  request<Booking[]>(`/bookings/series/${seriesId}`, { method: 'DELETE', memberId });
 
 export const cancelBooking = (memberId: number, bookingId: number) =>
   request<Booking>(`/bookings/${bookingId}`, { method: 'DELETE', memberId });

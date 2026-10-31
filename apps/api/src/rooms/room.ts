@@ -13,6 +13,8 @@ export interface Room {
   /** Couleur de la vignette, #rrggbb. */
   color: string;
   description: string;
+  /** Tarif horaire HT, en centimes. */
+  hourlyRateCents: number;
 }
 
 export interface RoomFilters {

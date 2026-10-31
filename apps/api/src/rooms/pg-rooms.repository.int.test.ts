@@ -9,7 +9,13 @@ const rooms = new PgRoomsRepository(db);
 beforeEach(async () => {
   await clearTables(db);
   await insertRoom(db, { name: 'La Serre', floor: 1, capacity: 8, equipment: ['screen', 'whiteboard'] });
-  await insertRoom(db, { name: 'Cabine 1', floor: 0, capacity: 2, equipment: ['videoconference'] });
+  await insertRoom(db, {
+    name: 'Cabine 1',
+    floor: 0,
+    capacity: 2,
+    equipment: ['videoconference'],
+    hourlyRateCents: 800,
+  });
   await insertRoom(db, {
     name: 'Atelier',
     floor: 0,
@@ -46,7 +52,13 @@ describe('PgRoomsRepository', () => {
   });
 
   it('gives one room, or null', async () => {
-    expect(await rooms.get(2)).toMatchObject({ id: 2, name: 'Cabine 1', color: '#5b8a72', description: '' });
+    expect(await rooms.get(2)).toMatchObject({
+      id: 2,
+      name: 'Cabine 1',
+      color: '#5b8a72',
+      description: '',
+      hourlyRateCents: 800,
+    });
     expect(await rooms.get(99)).toBeNull();
   });
 });

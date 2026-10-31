@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ApiError, getDayPlanning, getRoom } from '@/lib/api';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisDateTime } from '@/lib/paris-time';
-import { floorLabel, seatsLabel } from '@/lib/rooms';
+import { floorLabel, hourlyRateLabel, seatsLabel } from '@/lib/rooms';
 import { agenda, CLOSING_TIME, prefillFor, type Span, spanOn, STEP_MINUTES } from '@/lib/schedule';
 import type { Booking, Room } from '@/lib/types';
 import { useNow } from '@/lib/use-now';
@@ -97,6 +97,10 @@ function RoomDay({ room, date, today }: { room: Room; date: string; today: strin
                 <dt className="sr-only">Étage</dt>
                 <LayersIcon />
                 <dd>{floorLabel(room.floor)}</dd>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <dt className="sr-only">Tarif</dt>
+                <dd>{hourlyRateLabel(room.hourlyRateCents)}</dd>
               </div>
             </dl>
             <EquipmentList equipment={room.equipment} />

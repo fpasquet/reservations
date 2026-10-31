@@ -9,6 +9,8 @@ export interface Room {
   equipment: Equipment[];
   color: string;
   description: string;
+  /** Tarif horaire HT, en centimes. */
+  hourlyRateCents: number;
 }
 
 export interface Member {

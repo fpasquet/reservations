@@ -12,11 +12,12 @@ interface RoomRow {
   equipment: Equipment[];
   color: string;
   description: string;
+  hourly_rate_cents: number;
 }
 
-const COLUMNS = 'id, name, floor, capacity, equipment, color, description';
+const COLUMNS = 'id, name, floor, capacity, equipment, color, description, hourly_rate_cents';
 
-const toRoom = (row: RoomRow): Room => ({ ...row });
+const toRoom = ({ hourly_rate_cents, ...row }: RoomRow): Room => ({ ...row, hourlyRateCents: hourly_rate_cents });
 
 @Injectable()
 export class PgRoomsRepository implements RoomsRepository {

@@ -18,3 +18,20 @@ export function floorLabel(floor: number): string {
 export function seatsLabel(capacity: number): string {
   return capacity > 1 ? `${capacity} places` : `${capacity} place`;
 }
+
+const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
+
+/** « 25,00 € HT / h » */
+export function hourlyRateLabel(cents: number): string {
+  return `${formatEuros(cents)} HT / h`;
+}
+
+/** « 12,50 € » */
+export function formatEuros(cents: number): string {
+  return euros.format(cents / 100);
+}
+
+/** Coût HT en centimes d'un créneau de `minutes` minutes (au quart d'heure), arrondi au centime. */
+export function bookingCostCents(hourlyRateCents: number, minutes: number): number {
+  return Math.round((hourlyRateCents * minutes) / 60);
+}

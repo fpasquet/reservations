@@ -2,6 +2,7 @@ import type { Booking, NewBooking } from '../bookings/booking.js';
 import type { BookingsRepository } from '../bookings/bookings.repository.js';
 import type { Member } from '../members/member.js';
 import type { MembersRepository } from '../members/members.repository.js';
+import type { RemindersRepository } from '../reminders/reminders.repository.js';
 import type { Room, RoomFilters } from '../rooms/room.js';
 import type { RoomsRepository } from '../rooms/rooms.repository.js';
 
@@ -84,6 +85,22 @@ export class InMemoryBookingsRepository implements BookingsRepository {
     if (!booking) throw new Error(`booking ${id} vanished`);
     booking.cancelledAt = at.toISOString();
     return Promise.resolve(booking);
+  }
+}
+
+export class InMemoryRemindersRepository implements RemindersRepository {
+  readonly sent = new Set<string>();
+
+  claim(memberId: number, day: string): Promise<boolean> {
+    const key = `${memberId}:${day}`;
+    if (this.sent.has(key)) return Promise.resolve(false);
+    this.sent.add(key);
+    return Promise.resolve(true);
+  }
+
+  release(memberId: number, day: string): Promise<void> {
+    this.sent.delete(`${memberId}:${day}`);
+    return Promise.resolve();
   }
 }
 

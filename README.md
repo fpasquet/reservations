@@ -38,8 +38,18 @@ make dev         # Postgres, API et interface, rechargés à chaud ; make up les
 | Interface | http://localhost:3030 |
 | API       | http://localhost:4030 |
 | Postgres  | localhost:5435        |
+| Mailpit   | http://localhost:8025 |
 
-Les ports se changent dans `.env` (`WEB_PORT`, `API_PORT`, `POSTGRES_PORT`).
+Les ports se changent dans `.env` (`WEB_PORT`, `API_PORT`, `POSTGRES_PORT`, `MAILPIT_PORT`).
+
+## E-mails
+
+La veille d'une réservation, à 18h00 (heure de Paris), chaque membre reçoit un seul e-mail qui récapitule ses
+réservations du lendemain (salle, horaires, titre, lien vers « Mes réservations » pour annuler) ; les réservations
+annulées n'y figurent pas. L'API vérifie l'heure chaque minute et note les rappels envoyés (table `booking_reminder`) :
+un redémarrage ne renvoie rien. En développement, `make dev` démarre Mailpit, qui capte les e-mails : ouvrir
+http://localhost:8025. Pour voir un rappel sans attendre 18h00, régler `FAKE_NOW` (par exemple
+`2026-11-05T17:59:00+01:00`). Le serveur SMTP se règle par les variables `SMTP_*` de `.env.example`.
 
 ## Structure
 

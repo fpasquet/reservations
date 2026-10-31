@@ -13,12 +13,12 @@ export function splitByTime(bookings: Booking[], now: Date): { upcoming: Booking
 
 const QUARTER_HOUR = 15 * 60_000;
 
-/** Le membre peut encore annuler : la réservation n'est ni annulée, ni libérée, ni commencée. */
+/** The member can still cancel: the booking is neither cancelled, released nor started. */
 export function isCancellable(booking: Booking, now: Date): boolean {
   return booking.cancelledAt === null && booking.releasedAt === null && new Date(booking.startsAt) > now;
 }
 
-/** Le bouton « Je suis arrivé » : de 15 minutes avant le début jusqu'à la libération, 15 minutes après. */
+/** The "Je suis arrivé" button: from 15 minutes before the start until the release, 15 minutes after it. */
 export function canSignalArrival(booking: Booking, now: Date): boolean {
   if (booking.cancelledAt !== null || booking.arrivedAt !== null || booking.releasedAt !== null) return false;
   const start = new Date(booking.startsAt).getTime();

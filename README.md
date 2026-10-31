@@ -7,11 +7,12 @@ trouvent une salle selon sa capacité et ses équipements, réservent un crénea
   réservation, déjà remplie.
 - **Salles** : les neuf salles de l'espace, filtrables par capacité et par équipement, et le planning du jour de
   chacune.
-- **Mes réservations** : les réservations à venir et passées du membre connecté, et l'annulation.
+- **Mes réservations** : les réservations à venir et passées du membre connecté, l'annulation et le bouton « Je suis arrivé ».
 
 Règles de réservation : de 8h00 à 20h00 (heure de Paris), au quart d'heure, 4 heures au plus, pas de chevauchement dans
 une même salle (une réservation peut commencer à l'heure où la précédente finit), pas plus de participants que de
-places, pas de créneau passé. Une réservation s'annule par la personne qui l'a faite, avant son début.
+places, pas de créneau passé. Une réservation s'annule par la personne qui l'a faite, avant son début. Le membre signale son arrivée ; sans elle 15 minutes après le début, la réservation est libérée
+(statut « Libérée ») et la salle redevient réservable.
 
 Les règles de la maison (horaires, formules, tarifs, réservations) sont écrites dans le
 [règlement intérieur](docs/reglement.md).
@@ -52,7 +53,7 @@ apps/
     src/
       rooms/              salles : GET /api/rooms?capacity=&equipment=, GET /api/rooms/:id
       members/            membres : GET /api/members
-      bookings/           réservations : règles, GET /api/bookings?date= ou ?memberId=, POST, DELETE /:id
+      bookings/           réservations : règles, GET /api/bookings?date= ou ?memberId=, POST, POST /:id/arrival, DELETE /:id
       shared/             heure de Paris, erreurs de l'API, horloge
       scripts/            migrate.ts, seed.ts
       testing/            dépôts en mémoire, application de test, préparation de la base de test

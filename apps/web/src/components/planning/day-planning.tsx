@@ -10,10 +10,12 @@ import { useNow } from '@/lib/use-now';
 import { useResource } from '@/lib/use-resource';
 import { type BookingDraft, BookingDialog } from '../booking-dialog';
 import { Button } from '../ui/button';
+import { TabPanel } from '../ui/tabs';
 import { EmptyState, ErrorState, LoadingLabel, Skeleton } from '../ui/feedback';
 import { CalendarIcon, PlusIcon } from '../ui/icons';
 import { DateNav } from './date-nav';
 import { PlanningGrid } from './planning-grid';
+import { type PlanningView, ViewSwitch } from './view-switch';
 
 export function DayPlanning({ date, today }: { date: string; today: string }) {
   const router = useRouter();
@@ -27,6 +29,10 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
 
   function navigate(next: string) {
     router.push(next === today ? '/' : `/?date=${next}`, { scroll: false });
+  }
+
+  function changeView(view: PlanningView) {
+    if (view === 'week') router.push(`/?view=week&date=${date}`, { scroll: false });
   }
 
   function openBlankDraft() {
@@ -54,37 +60,43 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <DateNav id="planning-date" date={date} today={today} onChange={navigate} />
-        <p className="text-sm text-ink-subtle">Cliquez sur un créneau libre pour le réserver.</p>
-      </div>
+      <ViewSwitch value="day" onChange={changeView} />
 
-      {error !== undefined ? (
-        <ErrorState
-          message={messageFor(error)}
-          onRetry={() => {
-            rooms.reload();
-            bookings.reload();
-          }}
-        />
-      ) : rooms.status !== 'ready' || bookings.status !== 'ready' ? (
-        <PlanningSkeleton />
-      ) : rooms.data.length === 0 ? (
-        <EmptyState
-          icon={<CalendarIcon className="size-6" />}
-          title="Aucune salle pour l’instant"
-          description="Les salles de l’espace apparaîtront ici dès qu’elles seront ouvertes à la réservation."
-        />
-      ) : (
-        <PlanningGrid
-          date={date}
-          rooms={rooms.data}
-          bookings={bookings.data}
-          now={now}
-          isToday={isToday}
-          onSelectSlot={(roomId, span) => setDraft({ roomId, date, ...span })}
-        />
-      )}
+      <TabPanel idPrefix="planning-view" id="day">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <DateNav id="planning-date" date={date} today={today} onChange={navigate} />
+            <p className="text-sm text-ink-subtle">Cliquez sur un créneau libre pour le réserver.</p>
+          </div>
+
+          {error !== undefined ? (
+            <ErrorState
+              message={messageFor(error)}
+              onRetry={() => {
+                rooms.reload();
+                bookings.reload();
+              }}
+            />
+          ) : rooms.status !== 'ready' || bookings.status !== 'ready' ? (
+            <PlanningSkeleton />
+          ) : rooms.data.length === 0 ? (
+            <EmptyState
+              icon={<CalendarIcon className="size-6" />}
+              title="Aucune salle pour l’instant"
+              description="Les salles de l’espace apparaîtront ici dès qu’elles seront ouvertes à la réservation."
+            />
+          ) : (
+            <PlanningGrid
+              date={date}
+              rooms={rooms.data}
+              bookings={bookings.data}
+              now={now}
+              isToday={isToday}
+              onSelectSlot={(roomId, span) => setDraft({ roomId, date, ...span })}
+            />
+          )}
+        </div>
+      </TabPanel>
 
       <BookingDialog
         draft={draft}

@@ -30,6 +30,11 @@ export interface Booking {
   cancelledAt: string | null;
 }
 
+export interface ClosedDay {
+  date: string;
+  name: string;
+}
+
 export interface BookingRequest {
   roomId: number;
   title: string;

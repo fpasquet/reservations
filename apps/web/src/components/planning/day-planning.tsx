@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { getDayPlanning, getRooms } from '@/lib/api';
+import { getClosedDay, getDayPlanning, getRooms } from '@/lib/api';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, parisDateTime } from '@/lib/paris-time';
 import { CLOSING_TIME, DEFAULT_DURATION, firstBookableStart } from '@/lib/schedule';
@@ -19,6 +19,7 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
   const router = useRouter();
   const rooms = useResource('rooms', () => getRooms());
   const bookings = useResource(`planning:${date}`, () => getDayPlanning(date));
+  const closedDay = useResource(`closed-day:${date}`, () => getClosedDay(date));
   const current = parisDateTime(useNow());
   const [draft, setDraft] = useState<BookingDraft | null>(null);
 
@@ -39,7 +40,8 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
     });
   }
 
-  const error = rooms.status === 'error' ? rooms.error : bookings.error;
+  const error = rooms.status === 'error' ? rooms.error : bookings.status === 'error' ? bookings.error : closedDay.error;
+  const closedName = closedDay.status === 'ready' ? closedDay.data?.name : undefined;
 
   return (
     <div className="flex flex-col gap-5">
@@ -48,7 +50,10 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
           <h1 className="text-2xl font-semibold tracking-tight">Planning</h1>
           <p className="mt-1 text-ink-muted first-letter:uppercase">{formatDay(date, today)}</p>
         </div>
-        <Button onClick={openBlankDraft} disabled={rooms.status !== 'ready'}>
+        <Button
+          onClick={openBlankDraft}
+          disabled={rooms.status !== 'ready' || closedDay.status !== 'ready' || !!closedName}
+        >
           <PlusIcon />
           Réserver une salle
         </Button>
@@ -65,10 +70,17 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
           onRetry={() => {
             rooms.reload();
             bookings.reload();
+            closedDay.reload();
           }}
         />
-      ) : rooms.status !== 'ready' || bookings.status !== 'ready' ? (
+      ) : rooms.status !== 'ready' || bookings.status !== 'ready' || closedDay.status !== 'ready' ? (
         <PlanningSkeleton />
+      ) : closedName ? (
+        <EmptyState
+          icon={<CalendarIcon className="size-6" />}
+          title={`Fermé · ${closedName}`}
+          description="L’espace est fermé ce jour-là, aucune réservation n’est possible."
+        />
       ) : rooms.data.length === 0 ? (
         <EmptyState
           icon={<CalendarIcon className="size-6" />}

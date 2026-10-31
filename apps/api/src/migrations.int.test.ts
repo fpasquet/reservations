@@ -15,6 +15,6 @@ describe('migrate', () => {
 
   it('records every migration file', async () => {
     const { rows } = await db.query<{ name: string }>('select name from schema_migration order by name');
-    expect(rows[0]?.name).toBe('0001_rooms_members_bookings.sql');
+    expect(rows.map((row) => row.name)).toEqual(['0001_rooms_members_bookings.sql', '0002_closed_days.sql']);
   });
 });

@@ -12,10 +12,14 @@ import { RoomsController } from '../rooms/rooms.controller.js';
 import { ROOMS_REPOSITORY } from '../rooms/rooms.repository.js';
 import { CLOCK, type Clock } from '../shared/clock.js';
 import { DomainErrorFilter } from '../shared/domain-error.filter.js';
+import { WaitlistController } from '../waitlist/waitlist.controller.js';
+import { WAITLIST_REPOSITORY } from '../waitlist/waitlist.repository.js';
+import { WaitlistService } from '../waitlist/waitlist.service.js';
 import {
   InMemoryBookingsRepository,
   InMemoryMembersRepository,
   InMemoryRoomsRepository,
+  InMemoryWaitlistRepository,
 } from './in-memory-repositories.js';
 
 export const rooms: Room[] = [
@@ -43,6 +47,7 @@ export const rooms: Room[] = [
 export const members: Member[] = [
   { id: 1, fullName: 'Camille Martin', email: 'camille@studio-ondes.fr', company: 'Studio Ondes' },
   { id: 2, fullName: 'Yanis Benali', email: 'yanis@benali.dev', company: 'Indépendant' },
+  { id: 3, fullName: 'Léa Fontaine', email: 'lea@fontaine.fr', company: 'Atelier Fontaine' },
 ];
 
 export interface TestApp {
@@ -58,9 +63,11 @@ export async function createTestApp(now: Date): Promise<TestApp> {
   const fixedClock: Clock = { now: () => clock.current };
   const bookings = new InMemoryBookingsRepository(rooms, members, () => clock.current);
   const module = await Test.createTestingModule({
-    controllers: [RoomsController, MembersController, BookingsController],
+    controllers: [RoomsController, MembersController, BookingsController, WaitlistController],
     providers: [
       BookingsService,
+      WaitlistService,
+      { provide: WAITLIST_REPOSITORY, useValue: new InMemoryWaitlistRepository(rooms, members) },
       { provide: CLOCK, useValue: fixedClock },
       { provide: ROOMS_REPOSITORY, useValue: new InMemoryRoomsRepository(rooms) },
       { provide: MEMBERS_REPOSITORY, useValue: new InMemoryMembersRepository(members) },

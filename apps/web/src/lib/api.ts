@@ -1,4 +1,4 @@
-import type { Booking, BookingRequest, Equipment, Member, Room } from './types';
+import type { Booking, BookingRequest, Equipment, Member, Room, WaitlistEntry } from './types';
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -78,3 +78,14 @@ export const createBooking = (memberId: number, booking: BookingRequest) =>
 
 export const cancelBooking = (memberId: number, bookingId: number) =>
   request<Booking>(`/bookings/${bookingId}`, { method: 'DELETE', memberId });
+
+export const getMemberWaitlist = (memberId: number) => request<WaitlistEntry[]>(`/waitlist?memberId=${memberId}`);
+
+export const joinWaitlist = (memberId: number, booking: BookingRequest) =>
+  request<WaitlistEntry>('/waitlist', { method: 'POST', body: booking, memberId });
+
+export const leaveWaitlist = (memberId: number, entryId: number) =>
+  request<null>(`/waitlist/${entryId}`, { method: 'DELETE', memberId });
+
+export const confirmWaitlistOffer = (memberId: number, entryId: number) =>
+  request<Booking>(`/waitlist/${entryId}/confirm`, { method: 'POST', memberId });

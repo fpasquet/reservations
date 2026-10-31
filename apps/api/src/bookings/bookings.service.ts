@@ -4,6 +4,7 @@ import { ROOMS_REPOSITORY, type RoomsRepository } from '../rooms/rooms.repositor
 import { CLOCK, type Clock } from '../shared/clock.js';
 import { DomainError } from '../shared/domain-error.js';
 import { parisDayRange } from '../shared/paris-time.js';
+import { WaitlistService } from '../waitlist/waitlist.service.js';
 import type { Booking, BookingRequest } from './booking.js';
 import { checkCancellation, checkCapacity, checkSlot, overlaps } from './booking-rules.js';
 import { BOOKINGS_REPOSITORY, type BookingsRepository } from './bookings.repository.js';
@@ -15,6 +16,7 @@ export class BookingsService {
     @Inject(ROOMS_REPOSITORY) private readonly rooms: RoomsRepository,
     @Inject(MEMBERS_REPOSITORY) private readonly members: MembersRepository,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(WaitlistService) private readonly waitlist: WaitlistService,
   ) {}
 
   /** Le planning d'une journée (YYYY-MM-DD, à Paris), de toutes les salles ou d'une seule. */
@@ -37,6 +39,12 @@ export class BookingsService {
     checkSlot(request, this.clock.now());
     checkCapacity(room, request.attendees);
 
+    await this.waitlist.process();
+    // Une salle proposée à un inscrit lui est gardée pendant son délai de confirmation.
+    if (await this.waitlist.isHeldForOthers(memberId, room.id, request)) {
+      throw new DomainError('ROOM_ALREADY_BOOKED', `${room.name} is held for a member on the waiting list`, 'startsAt');
+    }
+
     const sameRoom = await this.bookings.listBetween(request.startsAt, request.endsAt, room.id);
     const conflict = sameRoom.find(
       (booking) =>
@@ -55,6 +63,9 @@ export class BookingsService {
     if (!booking) throw new DomainError('BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
     const now = this.clock.now();
     checkCancellation(booking, memberId, now);
-    return this.bookings.cancel(bookingId, now);
+    const cancelled = await this.bookings.cancel(bookingId, now);
+    // Le créneau libéré est proposé au premier inscrit.
+    await this.waitlist.process();
+    return cancelled;
   }
 }

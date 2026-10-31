@@ -7,7 +7,11 @@ trouvent une salle selon sa capacité et ses équipements, réservent un crénea
   réservation, déjà remplie.
 - **Salles** : les neuf salles de l'espace, filtrables par capacité et par équipement, et le planning du jour de
   chacune.
-- **Mes réservations** : les réservations à venir et passées du membre connecté, et l'annulation.
+- **Mes réservations** : les réservations à venir et passées du membre connecté, l'annulation, et ses inscriptions sur
+  liste d'attente.
+- **Liste d'attente** : quand un créneau est pris, le membre peut s'y inscrire. Si la réservation est annulée, le
+  premier inscrit voit la salle lui être proposée dans « Mes réservations » et a 30 minutes pour confirmer (la salle lui
+  est gardée) ; passé ce délai, la salle est proposée au suivant. Une inscription disparaît quand le créneau commence.
 
 Règles de réservation : de 8h00 à 20h00 (heure de Paris), au quart d'heure, 4 heures au plus, pas de chevauchement dans
 une même salle (une réservation peut commencer à l'heure où la précédente finit), pas plus de participants que de

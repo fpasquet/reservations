@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type pg from 'pg';
 import { DATABASE } from '../database.js';
+import { DomainError } from '../shared/domain-error.js';
 import type { Booking, NewBooking } from './booking.js';
 import type { BookingsRepository } from './bookings.repository.js';
 
@@ -17,6 +18,8 @@ interface BookingRow {
   member_id: number;
   member_name: string;
 }
+
+const EXCLUSION_VIOLATION = '23P01';
 
 const SELECT = `
   select b.id, b.title, b.attendees, b.starts_at, b.ends_at, b.created_at, b.cancelled_at,
@@ -64,12 +67,24 @@ export class PgBookingsRepository implements BookingsRepository {
   }
 
   async create(booking: NewBooking): Promise<Booking> {
-    const { rows } = await this.db.query<{ id: number }>(
-      `insert into booking (room_id, member_id, title, attendees, starts_at, ends_at)
-       values ($1, $2, $3, $4, $5, $6) returning id`,
-      [booking.roomId, booking.memberId, booking.title, booking.attendees, booking.startsAt, booking.endsAt],
-    );
-    return this.mustGet(rows[0]?.id);
+    try {
+      const { rows } = await this.db.query<{ id: number }>(
+        `insert into booking (room_id, member_id, title, attendees, starts_at, ends_at)
+         values ($1, $2, $3, $4, $5, $6) returning id`,
+        [booking.roomId, booking.memberId, booking.title, booking.attendees, booking.startsAt, booking.endsAt],
+      );
+      return await this.mustGet(rows[0]?.id);
+    } catch (error) {
+      // 23P01 : contrainte d'exclusion, une demande concurrente a pris le créneau
+      if ((error as { code?: string }).code === EXCLUSION_VIOLATION) {
+        throw new DomainError(
+          'ROOM_ALREADY_BOOKED',
+          `room ${booking.roomId} is already booked at that time`,
+          'startsAt',
+        );
+      }
+      throw error;
+    }
   }
 
   async cancel(id: number, at: Date): Promise<Booking> {

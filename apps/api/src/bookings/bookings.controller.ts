@@ -1,9 +1,9 @@
-import { Body, Controller, Delete, Get, Headers, Inject, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Inject, Param, Post, Query, Res } from '@nestjs/common';
 import { parseId } from '../rooms/room.js';
 import { DomainError } from '../shared/domain-error.js';
 import { isIsoDate } from '../shared/paris-time.js';
-import type { Booking } from './booking.js';
-import { parseBookingRequest, parseMemberHeader } from './booking-request.js';
+import type { Booking, Occurrence } from './booking.js';
+import { parseBookingRequest, parseMemberHeader, parseSeriesRequest } from './booking-request.js';
 import { BookingsService } from './bookings.service.js';
 
 function idFilter(value: string, field: string): number {
@@ -33,6 +33,33 @@ export class BookingsController {
   @Post()
   create(@Headers('x-member-id') memberId: string | undefined, @Body() body: unknown): Promise<Booking> {
     return this.bookings.create(parseMemberHeader(memberId), parseBookingRequest(body));
+  }
+
+  /**
+   * Répète la réservation chaque semaine. Avec `preview: true`, répond 200 avec les occurrences et leurs conflits sans
+   * rien créer ; sinon crée les occurrences libres ensemble (201) et rend les autres dans `conflicts`.
+   */
+  @Post('series')
+  async createSeries(
+    @Headers('x-member-id') memberId: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: { status(code: number): unknown },
+  ): Promise<{ occurrences: Occurrence[] } | { seriesId: number; bookings: Booking[]; conflicts: Occurrence[] }> {
+    const member = parseMemberHeader(memberId);
+    const { request, preview } = parseSeriesRequest(body);
+    if (preview) {
+      response.status(200);
+      return { occurrences: await this.bookings.previewSeries(member, request) };
+    }
+    return this.bookings.createSeries(member, request);
+  }
+
+  /** Annule les occurrences à venir de la série ; rend les réservations annulées. */
+  @Delete('series/:id')
+  cancelSeries(@Headers('x-member-id') memberId: string | undefined, @Param('id') id: string): Promise<Booking[]> {
+    const seriesId = parseId(id);
+    if (seriesId === null) throw new DomainError('SERIES_NOT_FOUND', `series ${id} not found`);
+    return this.bookings.cancelSeries(parseMemberHeader(memberId), seriesId);
   }
 
   /** Annule la réservation : elle est gardée, avec la date de son annulation. */

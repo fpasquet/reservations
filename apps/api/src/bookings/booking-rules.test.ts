@@ -121,6 +121,7 @@ const booking: Booking = {
   room: { id: 1, name: 'La Serre' },
   member: { id: 2, fullName: 'Yanis Benali' },
   title: 'Entretien',
+  seriesId: null,
   attendees: null,
   startsAt: at('2026-11-03', '10:00').toISOString(),
   endsAt: at('2026-11-03', '11:00').toISOString(),

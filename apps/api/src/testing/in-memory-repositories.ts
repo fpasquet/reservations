@@ -1,4 +1,4 @@
-import type { Booking, NewBooking } from '../bookings/booking.js';
+import type { Booking, NewBooking, NewSeries, SeriesCreated } from '../bookings/booking.js';
 import type { BookingsRepository } from '../bookings/bookings.repository.js';
 import type { Member } from '../members/member.js';
 import type { MembersRepository } from '../members/members.repository.js';
@@ -35,6 +35,7 @@ export class InMemoryMembersRepository implements MembersRepository {
 
 export class InMemoryBookingsRepository implements BookingsRepository {
   readonly bookings: Booking[] = [];
+  private readonly seriesOwners: number[] = [];
 
   constructor(
     private readonly rooms: Room[],
@@ -61,6 +62,10 @@ export class InMemoryBookingsRepository implements BookingsRepository {
   }
 
   create(booking: NewBooking): Promise<Booking> {
+    return Promise.resolve(this.insert(booking));
+  }
+
+  private insert(booking: NewBooking, seriesId?: number): Booking {
     const room = this.rooms.find((candidate) => candidate.id === booking.roomId);
     const member = this.members.find((candidate) => candidate.id === booking.memberId);
     if (!room || !member) throw new Error('unknown room or member');
@@ -74,9 +79,29 @@ export class InMemoryBookingsRepository implements BookingsRepository {
       endsAt: booking.endsAt.toISOString(),
       createdAt: this.now().toISOString(),
       cancelledAt: null,
+      seriesId: seriesId ?? null,
     };
     this.bookings.push(created);
-    return Promise.resolve(created);
+    return created;
+  }
+
+  createSeries(series: NewSeries): Promise<SeriesCreated> {
+    const seriesId = this.seriesOwners.length + 1;
+    this.seriesOwners.push(series.memberId);
+    const bookings = series.slots.map((slot) => this.insert({ ...series, ...slot }, seriesId));
+    return Promise.resolve({ seriesId, bookings });
+  }
+
+  getSeriesOwner(seriesId: number): Promise<number | null> {
+    return Promise.resolve(this.seriesOwners[seriesId - 1] ?? null);
+  }
+
+  cancelSeriesAfter(seriesId: number, after: Date, at: Date): Promise<Booking[]> {
+    const cancelled = this.bookings.filter(
+      (booking) => booking.seriesId === seriesId && booking.cancelledAt === null && new Date(booking.startsAt) > after,
+    );
+    for (const booking of cancelled) booking.cancelledAt = at.toISOString();
+    return Promise.resolve(cancelled.sort(byStart));
   }
 
   cancel(id: number, at: Date): Promise<Booking> {

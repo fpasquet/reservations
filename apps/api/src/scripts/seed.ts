@@ -310,7 +310,7 @@ const pool = connect();
 const client = await pool.connect();
 try {
   await client.query('begin');
-  await client.query('truncate booking, member, room restart identity cascade');
+  await client.query('truncate booking, booking_series, member, room restart identity cascade');
   for (const room of rooms) {
     await client.query(
       'insert into room (name, floor, capacity, equipment, color, description) values ($1, $2, $3, $4, $5, $6)',

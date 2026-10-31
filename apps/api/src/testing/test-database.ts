@@ -3,7 +3,7 @@ import type { Equipment } from '../rooms/room.js';
 
 /** Vide les tables entre deux tests ; les identifiants repartent de 1. */
 export async function clearTables(db: pg.Pool): Promise<void> {
-  await db.query('truncate booking, member, room restart identity cascade');
+  await db.query('truncate booking, booking_series, member, room restart identity cascade');
 }
 
 export async function insertRoom(

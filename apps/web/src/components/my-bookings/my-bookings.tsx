@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
-import { cancelBooking, getMemberBookings } from '@/lib/api';
-import { isCancellable, splitByTime } from '@/lib/bookings';
+import { cancelBooking, cancelSeries, getMemberBookings } from '@/lib/api';
+import { groupBySeries, isCancellable, splitByTime } from '@/lib/bookings';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisDateTime } from '@/lib/paris-time';
 import type { Booking, Member } from '@/lib/types';
@@ -72,6 +72,7 @@ function MemberBookings({ member }: { member: Member }) {
   const notify = useToast();
   const [tab, setTab] = useState<TabId>('upcoming');
   const [toCancel, setToCancel] = useState<Booking | null>(null);
+  const [seriesToCancel, setSeriesToCancel] = useState<{ seriesId: number; title: string; count: number } | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   if (bookings.status === 'loading') return <ListSkeleton />;
@@ -85,6 +86,25 @@ function MemberBookings({ member }: { member: Member }) {
 
   const { upcoming, past } = splitByTime(bookings.data, now);
   const shown = tab === 'upcoming' ? upcoming : past;
+
+  async function confirmCancelSeries() {
+    if (!seriesToCancel) return;
+    setCancelling(true);
+    try {
+      const cancelled = await cancelSeries(member.id, seriesToCancel.seriesId);
+      notify({
+        tone: 'success',
+        title: 'Série annulée',
+        description: `« ${seriesToCancel.title} » : ${cancelled.length} occurrence${cancelled.length > 1 ? 's' : ''} annulée${cancelled.length > 1 ? 's' : ''}.`,
+      });
+      setSeriesToCancel(null);
+      bookings.reload();
+    } catch (error) {
+      notify({ tone: 'danger', title: 'Annulation impossible', description: messageFor(error) });
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   async function confirmCancel() {
     if (!toCancel) return;
@@ -132,15 +152,31 @@ function MemberBookings({ member }: { member: Member }) {
             )
           ) : (
             <ul className="flex flex-col gap-3">
-              {shown.map((booking) => (
-                <BookingItem
-                  key={booking.id}
-                  booking={booking}
-                  cancellable={isCancellable(booking, now)}
-                  isToday={parisDateTime(new Date(booking.startsAt)).date === parisDateTime(now).date}
-                  onCancel={() => setToCancel(booking)}
-                />
-              ))}
+              {groupBySeries(shown).map((group) =>
+                group.kind === 'single' ? (
+                  <BookingItem
+                    key={group.booking.id}
+                    booking={group.booking}
+                    cancellable={isCancellable(group.booking, now)}
+                    isToday={parisDateTime(new Date(group.booking.startsAt)).date === parisDateTime(now).date}
+                    onCancel={() => setToCancel(group.booking)}
+                  />
+                ) : (
+                  <SeriesItem
+                    key={`series-${group.seriesId}`}
+                    bookings={group.bookings}
+                    now={now}
+                    onCancelOccurrence={setToCancel}
+                    onCancelSeries={() =>
+                      setSeriesToCancel({
+                        seriesId: group.seriesId,
+                        title: group.bookings[0]?.title ?? '',
+                        count: group.bookings.filter((booking) => isCancellable(booking, now)).length,
+                      })
+                    }
+                  />
+                ),
+              )}
             </ul>
           )}
         </TabPanel>
@@ -164,7 +200,98 @@ function MemberBookings({ member }: { member: Member }) {
           </Button>
         </div>
       </Dialog>
+
+      <Dialog
+        open={seriesToCancel !== null}
+        onClose={() => setSeriesToCancel(null)}
+        size="sm"
+        title="Annuler la série à venir ?"
+        description={
+          seriesToCancel
+            ? `« ${seriesToCancel.title} » : ${seriesToCancel.count} occurrence${seriesToCancel.count > 1 ? 's' : ''} à venir ${seriesToCancel.count > 1 ? 'seront annulées' : 'sera annulée'}. Celles déjà passées ou commencées sont conservées.`
+            : undefined
+        }
+      >
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={() => setSeriesToCancel(null)} autoFocus>
+            Garder la série
+          </Button>
+          <Button variant="danger" onClick={() => void confirmCancelSeries()} disabled={cancelling}>
+            {cancelling ? 'Annulation…' : 'Annuler la série'}
+          </Button>
+        </div>
+      </Dialog>
     </Page>
+  );
+}
+
+function SeriesItem({
+  bookings,
+  now,
+  onCancelOccurrence,
+  onCancelSeries,
+}: {
+  bookings: Booking[];
+  now: Date;
+  onCancelOccurrence: (booking: Booking) => void;
+  onCancelSeries: () => void;
+}) {
+  const [first] = bookings;
+  if (!first) return null;
+  const startTime = parisDateTime(new Date(first.startsAt));
+  const endTime = parisDateTime(new Date(first.endsAt));
+  const cancellable = bookings.filter((booking) => isCancellable(booking, now)).length;
+
+  return (
+    <li>
+      <Card className="flex flex-col gap-3 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate font-medium">{first.title}</h2>
+              <Badge tone="primary">Chaque semaine · {bookings.length}</Badge>
+            </div>
+            <p className="mt-0.5 text-sm text-ink-muted">
+              {formatMinutes(startTime.minutes)} – {formatMinutes(endTime.minutes)} ·{' '}
+              <Link
+                href={`/rooms/${first.room.id}?date=${startTime.date}`}
+                className="focus-ring rounded-sm underline-offset-2 hover:underline"
+              >
+                {first.room.name}
+              </Link>
+            </p>
+          </div>
+          {cancellable > 0 && (
+            <Button variant="secondary" size="sm" onClick={onCancelSeries} className="self-start sm:self-center">
+              Annuler la série à venir<span className="sr-only"> « {first.title} »</span>
+            </Button>
+          )}
+        </div>
+        <ul className="flex flex-col divide-y divide-border rounded-control border border-border">
+          {bookings.map((booking) => {
+            const day = parisDateTime(new Date(booking.startsAt)).date;
+            const cancelled = booking.cancelledAt !== null;
+            return (
+              <li key={booking.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className={cancelled ? 'text-ink-muted line-through' : ''}>
+                  <span className="first-letter:uppercase">{formatDay(day)}</span>
+                  {cancelled && (
+                    <Badge tone="danger" className="ml-2 no-underline">
+                      Annulée
+                    </Badge>
+                  )}
+                </span>
+                {isCancellable(booking, now) && (
+                  <Button variant="secondary" size="sm" onClick={() => onCancelOccurrence(booking)}>
+                    Annuler<span className="sr-only"> l’occurrence du {formatDay(day)}</span>
+                  </Button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+    </li>
   );
 }
 

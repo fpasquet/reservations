@@ -13,6 +13,11 @@ describe('parseRoomFilters', () => {
     expect(parseRoomFilters({})).toEqual({ equipment: [] });
   });
 
+  it('reads the search without case, accents or surrounding spaces', () => {
+    expect(parseRoomFilters({ search: '  ÉCLAIR ' })).toEqual({ equipment: [], search: 'eclair' });
+    expect(parseRoomFilters({ search: '   ' })).toEqual({ equipment: [] });
+  });
+
   it('refuses a capacity that is not a positive integer', () => {
     expect(() => parseRoomFilters({ capacity: 'four' })).toThrow('capacity must be a positive integer');
     expect(() => parseRoomFilters({ capacity: '0' })).toThrow('capacity must be a positive integer');

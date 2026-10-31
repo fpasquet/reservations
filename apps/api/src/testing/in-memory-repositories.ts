@@ -2,16 +2,17 @@ import type { Booking, NewBooking } from '../bookings/booking.js';
 import type { BookingsRepository } from '../bookings/bookings.repository.js';
 import type { Member } from '../members/member.js';
 import type { MembersRepository } from '../members/members.repository.js';
-import type { Room, RoomFilters } from '../rooms/room.js';
+import { normalizeSearch, type Room, type RoomFilters } from '../rooms/room.js';
 import type { RoomsRepository } from '../rooms/rooms.repository.js';
 
 /** Dépôts en mémoire, pour tester l'API sans Postgres ; ils suivent les requêtes SQL de leurs pendants. */
 export class InMemoryRoomsRepository implements RoomsRepository {
   constructor(readonly rooms: Room[]) {}
 
-  list({ minCapacity, equipment }: RoomFilters): Promise<Room[]> {
+  list({ minCapacity, equipment, search }: RoomFilters): Promise<Room[]> {
     const rooms = this.rooms
       .filter((room) => room.capacity >= (minCapacity ?? 1) && equipment.every((item) => room.equipment.includes(item)))
+      .filter((room) => normalizeSearch(room.name).includes(search ?? ''))
       .sort((a, b) => a.floor - b.floor || a.name.localeCompare(b.name));
     return Promise.resolve(rooms);
   }

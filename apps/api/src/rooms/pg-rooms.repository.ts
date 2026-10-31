@@ -16,18 +16,24 @@ interface RoomRow {
 
 const COLUMNS = 'id, name, floor, capacity, equipment, color, description';
 
+// Équivalent SQL de `normalizeSearch` pour les lettres accentuées du français, sans extension Postgres.
+const ACCENTED = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿ';
+const PLAIN = 'aaaaaaceeeeiiiinooooouuuuyy';
+
 const toRoom = (row: RoomRow): Room => ({ ...row });
 
 @Injectable()
 export class PgRoomsRepository implements RoomsRepository {
   constructor(@Inject(DATABASE) private readonly db: pg.Pool) {}
 
-  async list({ minCapacity, equipment }: RoomFilters): Promise<Room[]> {
+  async list({ minCapacity, equipment, search }: RoomFilters): Promise<Room[]> {
+    // strpos plutôt que like : le fragment n'a ni joker ni échappement à gérer.
     const { rows } = await this.db.query<RoomRow>(
       `select ${COLUMNS} from room
        where capacity >= $1 and equipment @> $2::text[]
+         and strpos(translate(lower(name), '${ACCENTED}', '${PLAIN}'), $3) > 0
        order by floor, name`,
-      [minCapacity ?? 1, equipment],
+      [minCapacity ?? 1, equipment, search ?? ''],
     );
     return rows.map(toRoom);
   }

@@ -23,6 +23,14 @@ describe('rooms', () => {
     expect((response.body as { name: string }[]).map((room) => room.name)).toEqual(['Atelier', 'La Serre']);
   });
 
+  it('searches by name, ignoring case, and combines with the other filters', async () => {
+    const names = async (url: string) =>
+      ((await api.http.get(url)).body as { name: string }[]).map((room) => room.name);
+    expect(await names('/rooms?search=SERRE')).toEqual(['La Serre']);
+    expect(await names('/rooms?search=cabine&capacity=4')).toEqual([]);
+    expect(await names('/rooms?search=a&equipment=whiteboard')).toEqual(['Atelier', 'La Serre']);
+  });
+
   it('answers 400 with an error code on an invalid filter', async () => {
     const response = await api.http.get('/rooms?capacity=-2');
     expect(response.status).toBe(400);

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type pg from 'pg';
 import { DATABASE } from '../database.js';
-import type { Booking, NewBooking } from './booking.js';
+import type { NewBooking, StoredBooking } from './booking.js';
 import type { BookingsRepository } from './bookings.repository.js';
 
 interface BookingRow {
@@ -12,6 +12,7 @@ interface BookingRow {
   ends_at: Date;
   created_at: Date;
   cancelled_at: Date | null;
+  arrived_at: Date | null;
   room_id: number;
   room_name: string;
   member_id: number;
@@ -19,13 +20,13 @@ interface BookingRow {
 }
 
 const SELECT = `
-  select b.id, b.title, b.attendees, b.starts_at, b.ends_at, b.created_at, b.cancelled_at,
+  select b.id, b.title, b.attendees, b.starts_at, b.ends_at, b.created_at, b.cancelled_at, b.arrived_at,
          r.id as room_id, r.name as room_name, m.id as member_id, m.full_name as member_name
   from booking b
   join room r on r.id = b.room_id
   join member m on m.id = b.member_id`;
 
-const toBooking = (row: BookingRow): Booking => ({
+const toBooking = (row: BookingRow): StoredBooking => ({
   id: row.id,
   room: { id: row.room_id, name: row.room_name },
   member: { id: row.member_id, fullName: row.member_name },
@@ -35,13 +36,14 @@ const toBooking = (row: BookingRow): Booking => ({
   endsAt: row.ends_at.toISOString(),
   createdAt: row.created_at.toISOString(),
   cancelledAt: row.cancelled_at?.toISOString() ?? null,
+  arrivedAt: row.arrived_at?.toISOString() ?? null,
 });
 
 @Injectable()
 export class PgBookingsRepository implements BookingsRepository {
   constructor(@Inject(DATABASE) private readonly db: pg.Pool) {}
 
-  async listBetween(from: Date, to: Date, roomId?: number): Promise<Booking[]> {
+  async listBetween(from: Date, to: Date, roomId?: number): Promise<StoredBooking[]> {
     const { rows } = await this.db.query<BookingRow>(
       `${SELECT}
        where b.starts_at < $2 and b.ends_at > $1 and ($3::integer is null or b.room_id = $3)
@@ -51,19 +53,19 @@ export class PgBookingsRepository implements BookingsRepository {
     return rows.map(toBooking);
   }
 
-  async listByMember(memberId: number): Promise<Booking[]> {
+  async listByMember(memberId: number): Promise<StoredBooking[]> {
     const { rows } = await this.db.query<BookingRow>(`${SELECT} where b.member_id = $1 order by b.starts_at`, [
       memberId,
     ]);
     return rows.map(toBooking);
   }
 
-  async get(id: number): Promise<Booking | null> {
+  async get(id: number): Promise<StoredBooking | null> {
     const { rows } = await this.db.query<BookingRow>(`${SELECT} where b.id = $1`, [id]);
     return rows[0] ? toBooking(rows[0]) : null;
   }
 
-  async create(booking: NewBooking): Promise<Booking> {
+  async create(booking: NewBooking): Promise<StoredBooking> {
     const { rows } = await this.db.query<{ id: number }>(
       `insert into booking (room_id, member_id, title, attendees, starts_at, ends_at)
        values ($1, $2, $3, $4, $5, $6) returning id`,
@@ -72,12 +74,17 @@ export class PgBookingsRepository implements BookingsRepository {
     return this.mustGet(rows[0]?.id);
   }
 
-  async cancel(id: number, at: Date): Promise<Booking> {
+  async cancel(id: number, at: Date): Promise<StoredBooking> {
     await this.db.query('update booking set cancelled_at = $2 where id = $1', [id, at]);
     return this.mustGet(id);
   }
 
-  private async mustGet(id: number | undefined): Promise<Booking> {
+  async markArrived(id: number, at: Date): Promise<StoredBooking> {
+    await this.db.query('update booking set arrived_at = $2 where id = $1', [id, at]);
+    return this.mustGet(id);
+  }
+
+  private async mustGet(id: number | undefined): Promise<StoredBooking> {
     const booking = id === undefined ? null : await this.get(id);
     if (!booking) throw new Error(`booking ${id} vanished`);
     return booking;

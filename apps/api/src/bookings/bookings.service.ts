@@ -5,7 +5,15 @@ import { CLOCK, type Clock } from '../shared/clock.js';
 import { DomainError } from '../shared/domain-error.js';
 import { parisDayRange } from '../shared/paris-time.js';
 import type { Booking, BookingRequest } from './booking.js';
-import { checkCancellation, checkCapacity, checkSlot, overlaps } from './booking-rules.js';
+import {
+  checkArrival,
+  checkCancellation,
+  checkCapacity,
+  checkSlot,
+  isReleased,
+  overlaps,
+  withRelease,
+} from './booking-rules.js';
 import { BOOKINGS_REPOSITORY, type BookingsRepository } from './bookings.repository.js';
 
 @Injectable()
@@ -17,15 +25,19 @@ export class BookingsService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  /** Le planning d'une journée (YYYY-MM-DD, à Paris), de toutes les salles ou d'une seule. */
-  dayPlanning(date: string, roomId?: number): Promise<Booking[]> {
+  /** The planning of a day (YYYY-MM-DD, Paris time), for all rooms or one; released bookings are left out. */
+  async dayPlanning(date: string, roomId?: number): Promise<Booking[]> {
     const { from, to } = parisDayRange(date);
-    return this.bookings.listBetween(from, to, roomId);
+    const now = this.clock.now();
+    const stored = await this.bookings.listBetween(from, to, roomId);
+    return stored.filter((booking) => !isReleased(booking, now)).map((booking) => withRelease(booking, now));
   }
 
-  /** Toutes les réservations d'un membre, annulées comprises. */
-  memberBookings(memberId: number): Promise<Booking[]> {
-    return this.bookings.listByMember(memberId);
+  /** All the bookings of a member, cancelled and released ones included. */
+  async memberBookings(memberId: number): Promise<Booking[]> {
+    const now = this.clock.now();
+    const stored = await this.bookings.listByMember(memberId);
+    return stored.map((booking) => withRelease(booking, now));
   }
 
   async create(memberId: number, request: BookingRequest): Promise<Booking> {
@@ -34,27 +46,43 @@ export class BookingsService {
     const room = await this.rooms.get(request.roomId);
     if (!room) throw new DomainError('ROOM_NOT_FOUND', `room ${request.roomId} not found`, 'roomId');
 
-    checkSlot(request, this.clock.now());
+    const now = this.clock.now();
+    checkSlot(request, now);
     checkCapacity(room, request.attendees);
 
     const sameRoom = await this.bookings.listBetween(request.startsAt, request.endsAt, room.id);
     const conflict = sameRoom.find(
       (booking) =>
         booking.cancelledAt === null &&
+        !isReleased(booking, now) &&
         overlaps(request, { startsAt: new Date(booking.startsAt), endsAt: new Date(booking.endsAt) }),
     );
     if (conflict) {
       throw new DomainError('ROOM_ALREADY_BOOKED', `${room.name} is already booked at that time`, 'startsAt');
     }
 
-    return this.bookings.create({ ...request, memberId });
+    return withRelease(await this.bookings.create({ ...request, memberId }), now);
   }
 
   async cancel(memberId: number, bookingId: number): Promise<Booking> {
-    const booking = await this.bookings.get(bookingId);
-    if (!booking) throw new DomainError('BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
+    const booking = await this.mustGet(bookingId);
     const now = this.clock.now();
     checkCancellation(booking, memberId, now);
-    return this.bookings.cancel(bookingId, now);
+    return withRelease(await this.bookings.cancel(bookingId, now), now);
+  }
+
+  /** The member signals their arrival; signaled again, the first timestamp is kept. */
+  async signalArrival(memberId: number, bookingId: number): Promise<Booking> {
+    const booking = await this.mustGet(bookingId);
+    const now = this.clock.now();
+    checkArrival(booking, memberId, now);
+    if (booking.arrivedAt !== null) return withRelease(booking, now);
+    return withRelease(await this.bookings.markArrived(bookingId, now), now);
+  }
+
+  private async mustGet(bookingId: number) {
+    const booking = await this.bookings.get(bookingId);
+    if (!booking) throw new DomainError('BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
+    return booking;
   }
 }

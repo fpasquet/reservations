@@ -1,7 +1,7 @@
 import type { Room } from '../rooms/room.js';
 import { DomainError } from '../shared/domain-error.js';
 import { parisDateTime } from '../shared/paris-time.js';
-import type { Booking } from './booking.js';
+import type { Booking, StoredBooking } from './booking.js';
 
 /** Horaires d'ouverture de l'espace, en minutes depuis minuit (heure de Paris). */
 export const OPENING_TIME = 8 * 60;
@@ -9,6 +9,10 @@ export const CLOSING_TIME = 20 * 60;
 /** Les réservations commencent et finissent au quart d'heure. */
 export const STEP_MINUTES = 15;
 export const MAX_DURATION_MINUTES = 4 * 60;
+/** Without a signaled arrival this long after its start, a booking is released. */
+export const RELEASE_DELAY_MINUTES = 15;
+/** The arrival can be signaled this long before the start at the earliest. */
+export const EARLY_ARRIVAL_MINUTES = 15;
 
 const MINUTE = 60_000;
 
@@ -62,14 +66,51 @@ export function overlaps(a: Slot, b: Slot): boolean {
 }
 
 /** Seul le membre qui a réservé annule, et seulement avant le début. */
-export function checkCancellation(booking: Booking, memberId: number, now: Date): void {
+export function checkCancellation(booking: StoredBooking, memberId: number, now: Date): void {
   if (booking.member.id !== memberId) {
     throw new DomainError('NOT_YOUR_BOOKING', 'only the member who booked can cancel');
   }
   if (booking.cancelledAt !== null) {
     throw new DomainError('ALREADY_CANCELLED', 'the booking is already cancelled');
   }
+  if (isReleased(booking, now)) {
+    throw new DomainError('BOOKING_RELEASED', 'the booking was released, it cannot be cancelled');
+  }
   if (new Date(booking.startsAt) <= now) {
     throw new DomainError('ALREADY_STARTED', 'a booking cannot be cancelled once it has started');
+  }
+}
+
+/** The instant a booking is released if its arrival was not signaled. */
+export function releaseTime(booking: Pick<StoredBooking, 'startsAt'>): Date {
+  return new Date(new Date(booking.startsAt).getTime() + RELEASE_DELAY_MINUTES * MINUTE);
+}
+
+/** Released: neither cancelled nor arrived, and the delay has elapsed. The room is free from that very instant. */
+export function isReleased(booking: StoredBooking, now: Date): boolean {
+  return booking.cancelledAt === null && booking.arrivedAt === null && now >= releaseTime(booking);
+}
+
+/** Release is derived from the clock rather than stored, so no job has to run for the room to be freed. */
+export function withRelease(booking: StoredBooking, now: Date): Booking {
+  return { ...booking, releasedAt: isReleased(booking, now) ? releaseTime(booking).toISOString() : null };
+}
+
+/** Only the member who booked signals the arrival, shortly before or after the start, while not released. */
+export function checkArrival(booking: StoredBooking, memberId: number, now: Date): void {
+  if (booking.member.id !== memberId) {
+    throw new DomainError('NOT_YOUR_BOOKING', 'only the member who booked can signal the arrival');
+  }
+  if (booking.cancelledAt !== null) {
+    throw new DomainError('ALREADY_CANCELLED', 'the booking is cancelled');
+  }
+  if (isReleased(booking, now)) {
+    throw new DomainError('BOOKING_RELEASED', 'the booking was released, the arrival came too late');
+  }
+  if (new Date(booking.startsAt).getTime() - now.getTime() > EARLY_ARRIVAL_MINUTES * MINUTE) {
+    throw new DomainError(
+      'TOO_EARLY_FOR_ARRIVAL',
+      'the arrival can be signaled 15 minutes before the start at the earliest',
+    );
   }
 }

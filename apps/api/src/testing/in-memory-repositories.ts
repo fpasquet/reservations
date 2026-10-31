@@ -1,4 +1,4 @@
-import type { Booking, NewBooking } from '../bookings/booking.js';
+import type { NewBooking, StoredBooking } from '../bookings/booking.js';
 import type { BookingsRepository } from '../bookings/bookings.repository.js';
 import type { Member } from '../members/member.js';
 import type { MembersRepository } from '../members/members.repository.js';
@@ -34,7 +34,7 @@ export class InMemoryMembersRepository implements MembersRepository {
 }
 
 export class InMemoryBookingsRepository implements BookingsRepository {
-  readonly bookings: Booking[] = [];
+  readonly bookings: StoredBooking[] = [];
 
   constructor(
     private readonly rooms: Room[],
@@ -42,7 +42,7 @@ export class InMemoryBookingsRepository implements BookingsRepository {
     private readonly now: () => Date,
   ) {}
 
-  listBetween(from: Date, to: Date, roomId?: number): Promise<Booking[]> {
+  listBetween(from: Date, to: Date, roomId?: number): Promise<StoredBooking[]> {
     const bookings = this.bookings.filter(
       (booking) =>
         new Date(booking.startsAt) < to &&
@@ -52,19 +52,19 @@ export class InMemoryBookingsRepository implements BookingsRepository {
     return Promise.resolve(bookings.sort(byStart));
   }
 
-  listByMember(memberId: number): Promise<Booking[]> {
+  listByMember(memberId: number): Promise<StoredBooking[]> {
     return Promise.resolve(this.bookings.filter((booking) => booking.member.id === memberId).sort(byStart));
   }
 
-  get(id: number): Promise<Booking | null> {
+  get(id: number): Promise<StoredBooking | null> {
     return Promise.resolve(this.bookings.find((booking) => booking.id === id) ?? null);
   }
 
-  create(booking: NewBooking): Promise<Booking> {
+  create(booking: NewBooking): Promise<StoredBooking> {
     const room = this.rooms.find((candidate) => candidate.id === booking.roomId);
     const member = this.members.find((candidate) => candidate.id === booking.memberId);
     if (!room || !member) throw new Error('unknown room or member');
-    const created: Booking = {
+    const created: StoredBooking = {
       id: this.bookings.length + 1,
       room: { id: room.id, name: room.name },
       member: { id: member.id, fullName: member.fullName },
@@ -74,17 +74,25 @@ export class InMemoryBookingsRepository implements BookingsRepository {
       endsAt: booking.endsAt.toISOString(),
       createdAt: this.now().toISOString(),
       cancelledAt: null,
+      arrivedAt: null,
     };
     this.bookings.push(created);
     return Promise.resolve(created);
   }
 
-  cancel(id: number, at: Date): Promise<Booking> {
+  cancel(id: number, at: Date): Promise<StoredBooking> {
     const booking = this.bookings.find((candidate) => candidate.id === id);
     if (!booking) throw new Error(`booking ${id} vanished`);
     booking.cancelledAt = at.toISOString();
     return Promise.resolve(booking);
   }
+
+  markArrived(id: number, at: Date): Promise<StoredBooking> {
+    const booking = this.bookings.find((candidate) => candidate.id === id);
+    if (!booking) throw new Error(`booking ${id} vanished`);
+    booking.arrivedAt = at.toISOString();
+    return Promise.resolve(booking);
+  }
 }
 
-const byStart = (a: Booking, b: Booking) => a.startsAt.localeCompare(b.startsAt);
+const byStart = (a: StoredBooking, b: StoredBooking) => a.startsAt.localeCompare(b.startsAt);

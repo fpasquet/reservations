@@ -63,8 +63,11 @@ Tarifs horaires hors taxes :
 
 ## 5. Arrivée et salles libérées
 
-Le membre signale son arrivée à l'accueil au début de sa réservation. **Une réservation dont l'arrivée n'a pas été
-signalée 15 minutes après son début est libérée** : la salle redevient disponible pour les autres membres.
+Le membre qui a fait la réservation signale lui-même son arrivée au début de sa réservation, avec le bouton « Je suis
+arrivé » de la page « Mes réservations » de l'outil de réservation (possible dès 15 minutes avant le début). **Une
+réservation dont l'arrivée n'a pas été signalée 15 minutes après son début est libérée** : la salle redevient
+disponible pour les autres membres dès cet instant. La réservation libérée reste dans l'historique du membre, avec le
+statut « Libérée » ; elle ne peut plus être annulée ni son arrivée signalée.
 
 ## 6. Annuler une réservation
 

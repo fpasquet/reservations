@@ -119,6 +119,91 @@ describe('bookings', () => {
     });
   });
 
+  describe('POST /bookings/:id/arrival and release', () => {
+    const arrive = (id: number, memberId = '1') =>
+      api.http.post(`/bookings/${id}/arrival`).set('X-Member-Id', memberId);
+    const idOf = (response: { body: unknown }) => (response.body as { id: number }).id;
+
+    it('records the arrival with its time, and the booking is never released', async () => {
+      const id = idOf(await book());
+      api.clock.current = new Date(at(tuesday, '10:10'));
+      const response = await arrive(id);
+      expect(response.status).toBe(201);
+      expect(response.body).toMatchObject({ id, arrivedAt: '2026-11-03T09:10:00.000Z', releasedAt: null });
+
+      api.clock.current = new Date(at(tuesday, '10:40'));
+      const planning = await api.http.get(`/bookings?date=${tuesday}`);
+      expect(planning.body).toMatchObject([{ id, releasedAt: null }]);
+      expect((await book({ startsAt: at(tuesday, '10:45'), endsAt: at(tuesday, '11:00') }, '2')).status).toBe(409);
+    });
+
+    it('keeps the first arrival time when signaled twice', async () => {
+      const id = idOf(await book());
+      api.clock.current = new Date(at(tuesday, '10:02'));
+      await arrive(id);
+      api.clock.current = new Date(at(tuesday, '10:08'));
+      expect((await arrive(id)).body).toMatchObject({ arrivedAt: '2026-11-03T09:02:00.000Z' });
+    });
+
+    it('refuses an arrival signaled by another member', async () => {
+      const id = idOf(await book());
+      api.clock.current = new Date(at(tuesday, '10:05'));
+      const response = await arrive(id, '2');
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ code: 'NOT_YOUR_BOOKING' });
+      expect(api.bookings.bookings[0]?.arrivedAt).toBeNull();
+    });
+
+    it('releases a booking without arrival 15 minutes after its start, in any room', async () => {
+      for (const roomId of [1, 3]) {
+        const id = idOf(await book({ roomId }));
+        api.clock.current = new Date(at(tuesday, '10:14'));
+        expect((await api.http.get(`/bookings?date=${tuesday}&roomId=${roomId}`)).body).toHaveLength(1);
+
+        api.clock.current = new Date(at(tuesday, '10:15'));
+        expect((await api.http.get(`/bookings?date=${tuesday}&roomId=${roomId}`)).body).toEqual([]);
+        const mine = await api.http.get('/bookings?memberId=1');
+        expect((mine.body as { id: number; releasedAt: string | null }[]).find((b) => b.id === id)).toMatchObject({
+          releasedAt: '2026-11-03T09:15:00.000Z',
+          cancelledAt: null,
+        });
+        api.clock.current = new Date(at('2026-11-02', '09:10'));
+      }
+    });
+
+    it('lets another member book the slot from the instant of the release', async () => {
+      await book();
+      api.clock.current = new Date(at(tuesday, '10:14'));
+      expect((await book({ startsAt: at(tuesday, '10:15'), endsAt: at(tuesday, '11:00') }, '2')).status).toBe(409);
+
+      api.clock.current = new Date(at(tuesday, '10:15'));
+      const response = await book({ startsAt: at(tuesday, '10:15'), endsAt: at(tuesday, '11:00') }, '2');
+      expect(response.status).toBe(201);
+    });
+
+    it('refuses an arrival after the release, with a clear code', async () => {
+      const id = idOf(await book());
+      api.clock.current = new Date(at(tuesday, '10:20'));
+      const response = await arrive(id);
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({ code: 'BOOKING_RELEASED' });
+    });
+
+    it('keeps a released booking in the history, and cannot be cancelled anymore', async () => {
+      const id = idOf(await book());
+      api.clock.current = new Date(at(tuesday, '12:00'));
+      const mine = await api.http.get('/bookings?memberId=1');
+      expect(mine.body).toMatchObject([{ id, releasedAt: '2026-11-03T09:15:00.000Z' }]);
+
+      const response = await api.http.delete(`/bookings/${id}`).set('X-Member-Id', '1');
+      expect(response.body).toMatchObject({ code: 'BOOKING_RELEASED' });
+    });
+
+    it('answers 404 for an unknown booking', async () => {
+      expect((await arrive(99)).status).toBe(404);
+    });
+  });
+
   describe('DELETE /bookings/:id', () => {
     it('cancels the booking and keeps it', async () => {
       const created = await book();

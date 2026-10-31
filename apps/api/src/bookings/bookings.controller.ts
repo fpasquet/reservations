@@ -35,6 +35,14 @@ export class BookingsController {
     return this.bookings.create(parseMemberHeader(memberId), parseBookingRequest(body));
   }
 
+  /** The member signals their arrival; without it 15 minutes after the start, the booking is released. */
+  @Post(':id/arrival')
+  signalArrival(@Headers('x-member-id') memberId: string | undefined, @Param('id') id: string): Promise<Booking> {
+    const bookingId = parseId(id);
+    if (bookingId === null) throw new DomainError('BOOKING_NOT_FOUND', `booking ${id} not found`);
+    return this.bookings.signalArrival(parseMemberHeader(memberId), bookingId);
+  }
+
   /** Annule la réservation : elle est gardée, avec la date de son annulation. */
   @Delete(':id')
   cancel(@Headers('x-member-id') memberId: string | undefined, @Param('id') id: string): Promise<Booking> {

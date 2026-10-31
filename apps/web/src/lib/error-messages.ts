@@ -14,6 +14,7 @@ const MESSAGES: Record<string, string> = {
   BOOKING_NOT_FOUND: 'Cette réservation n’existe pas ou plus.',
   END_BEFORE_START: 'L’heure de fin doit être après l’heure de début.',
   OUTSIDE_OPENING_HOURS: 'L’espace est ouvert de 8h00 à 20h00, une réservation doit tenir dans ces horaires.',
+  CLOSED_DAY: 'L’espace est fermé ce jour-là (jour férié), aucune réservation n’est possible.',
   NOT_ON_QUARTER_HOUR: 'Les réservations commencent et finissent au quart d’heure.',
   TOO_LONG: 'Une réservation dure au plus 4 heures.',
   IN_THE_PAST: 'Ce créneau est déjà passé.',

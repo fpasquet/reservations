@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'BOOKING_NOT_FOUND'
   | 'END_BEFORE_START'
   | 'OUTSIDE_OPENING_HOURS'
+  | 'CLOSED_DAY'
   | 'NOT_ON_QUARTER_HOUR'
   | 'TOO_LONG'
   | 'IN_THE_PAST'

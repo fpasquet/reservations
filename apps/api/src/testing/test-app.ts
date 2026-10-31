@@ -4,6 +4,8 @@ import request from 'supertest';
 import { BookingsController } from '../bookings/bookings.controller.js';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository.js';
 import { BookingsService } from '../bookings/bookings.service.js';
+import { ClosedDaysController } from '../closed-days/closed-days.controller.js';
+import { CLOSED_DAYS_REPOSITORY } from '../closed-days/closed-days.repository.js';
 import type { Member } from '../members/member.js';
 import { MembersController } from '../members/members.controller.js';
 import { MEMBERS_REPOSITORY } from '../members/members.repository.js';
@@ -14,6 +16,7 @@ import { CLOCK, type Clock } from '../shared/clock.js';
 import { DomainErrorFilter } from '../shared/domain-error.filter.js';
 import {
   InMemoryBookingsRepository,
+  InMemoryClosedDaysRepository,
   InMemoryMembersRepository,
   InMemoryRoomsRepository,
 } from './in-memory-repositories.js';
@@ -50,6 +53,7 @@ export interface TestApp {
   http: ReturnType<typeof request>;
   clock: { current: Date };
   bookings: InMemoryBookingsRepository;
+  closedDays: InMemoryClosedDaysRepository;
 }
 
 /** L'API sur des dépôts en mémoire, à l'heure fixée par `clock.current`. */
@@ -57,18 +61,20 @@ export async function createTestApp(now: Date): Promise<TestApp> {
   const clock = { current: now };
   const fixedClock: Clock = { now: () => clock.current };
   const bookings = new InMemoryBookingsRepository(rooms, members, () => clock.current);
+  const closedDays = new InMemoryClosedDaysRepository();
   const module = await Test.createTestingModule({
-    controllers: [RoomsController, MembersController, BookingsController],
+    controllers: [RoomsController, MembersController, BookingsController, ClosedDaysController],
     providers: [
       BookingsService,
       { provide: CLOCK, useValue: fixedClock },
       { provide: ROOMS_REPOSITORY, useValue: new InMemoryRoomsRepository(rooms) },
       { provide: MEMBERS_REPOSITORY, useValue: new InMemoryMembersRepository(members) },
       { provide: BOOKINGS_REPOSITORY, useValue: bookings },
+      { provide: CLOSED_DAYS_REPOSITORY, useValue: closedDays },
     ],
   }).compile();
   const app = module.createNestApplication({ logger: false });
   app.useGlobalFilters(new DomainErrorFilter());
   await app.init();
-  return { app, http: request(app.getHttpServer() as Parameters<typeof request>[0]), clock, bookings };
+  return { app, http: request(app.getHttpServer() as Parameters<typeof request>[0]), clock, bookings, closedDays };
 }

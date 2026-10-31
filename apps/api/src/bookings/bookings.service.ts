@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { CLOSED_DAYS_REPOSITORY, type ClosedDaysRepository } from '../closed-days/closed-days.repository.js';
 import { MEMBERS_REPOSITORY, type MembersRepository } from '../members/members.repository.js';
 import { ROOMS_REPOSITORY, type RoomsRepository } from '../rooms/rooms.repository.js';
 import { CLOCK, type Clock } from '../shared/clock.js';
 import { DomainError } from '../shared/domain-error.js';
-import { parisDayRange } from '../shared/paris-time.js';
+import { parisDateTime, parisDayRange } from '../shared/paris-time.js';
 import type { Booking, BookingRequest } from './booking.js';
 import { checkCancellation, checkCapacity, checkSlot, overlaps } from './booking-rules.js';
 import { BOOKINGS_REPOSITORY, type BookingsRepository } from './bookings.repository.js';
@@ -14,6 +15,7 @@ export class BookingsService {
     @Inject(BOOKINGS_REPOSITORY) private readonly bookings: BookingsRepository,
     @Inject(ROOMS_REPOSITORY) private readonly rooms: RoomsRepository,
     @Inject(MEMBERS_REPOSITORY) private readonly members: MembersRepository,
+    @Inject(CLOSED_DAYS_REPOSITORY) private readonly closedDays: ClosedDaysRepository,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
@@ -35,6 +37,9 @@ export class BookingsService {
     if (!room) throw new DomainError('ROOM_NOT_FOUND', `room ${request.roomId} not found`, 'roomId');
 
     checkSlot(request, this.clock.now());
+    const closed = await this.closedDays.find(parisDateTime(request.startsAt).date);
+    if (closed)
+      throw new DomainError('CLOSED_DAY', `the space is closed on ${closed.date} (${closed.name})`, 'startsAt');
     checkCapacity(room, request.attendees);
 
     const sameRoom = await this.bookings.listBetween(request.startsAt, request.endsAt, room.id);

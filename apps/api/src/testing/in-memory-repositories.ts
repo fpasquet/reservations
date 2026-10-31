@@ -1,5 +1,7 @@
 import type { Booking, NewBooking } from '../bookings/booking.js';
 import type { BookingsRepository } from '../bookings/bookings.repository.js';
+import type { ClosedDay } from '../closed-days/closed-day.js';
+import type { ClosedDaysRepository } from '../closed-days/closed-days.repository.js';
 import type { Member } from '../members/member.js';
 import type { MembersRepository } from '../members/members.repository.js';
 import type { Room, RoomFilters } from '../rooms/room.js';
@@ -84,6 +86,19 @@ export class InMemoryBookingsRepository implements BookingsRepository {
     if (!booking) throw new Error(`booking ${id} vanished`);
     booking.cancelledAt = at.toISOString();
     return Promise.resolve(booking);
+  }
+}
+
+export class InMemoryClosedDaysRepository implements ClosedDaysRepository {
+  constructor(public days: ClosedDay[] = []) {}
+
+  find(date: string): Promise<ClosedDay | null> {
+    return Promise.resolve(this.days.find((day) => day.date === date) ?? null);
+  }
+
+  replacePublicHolidays(days: ClosedDay[]): Promise<void> {
+    this.days = days;
+    return Promise.resolve();
   }
 }
 

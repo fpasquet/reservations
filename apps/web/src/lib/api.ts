@@ -1,4 +1,4 @@
-import type { Booking, BookingRequest, Equipment, Member, Room } from './types';
+import type { Booking, BookingRequest, ClosedDay, Equipment, Member, Room } from './types';
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -70,6 +70,10 @@ export function getDayPlanning(date: string, roomId?: number): Promise<Booking[]
   if (roomId !== undefined) query.set('roomId', String(roomId));
   return request<Booking[]>(`/bookings?${query.toString()}`);
 }
+
+/** Le jour de fermeture à cette date (YYYY-MM-DD), ou null si l'espace y est ouvert. */
+export const getClosedDay = async (date: string) =>
+  (await request<ClosedDay[]>(`/closed-days?date=${date}`))[0] ?? null;
 
 export const getMemberBookings = (memberId: number) => request<Booking[]>(`/bookings?memberId=${memberId}`);
 

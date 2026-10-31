@@ -58,6 +58,17 @@ describe('bookings', () => {
       expect(response.status).toBe(201);
     });
 
+    it('accepts a booking that ends exactly at closing time', async () => {
+      const response = await book({ startsAt: at(tuesday, '19:00'), endsAt: at(tuesday, '20:00') });
+      expect(response.status).toBe(201);
+    });
+
+    it('refuses a booking that starts at closing time', async () => {
+      const response = await book({ startsAt: at(tuesday, '20:00'), endsAt: at(tuesday, '20:15') });
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({ code: 'OUTSIDE_OPENING_HOURS', field: 'startsAt' });
+    });
+
     it('accepts the same slot in another room', async () => {
       await book();
       expect((await book({ roomId: 3 })).status).toBe(201);

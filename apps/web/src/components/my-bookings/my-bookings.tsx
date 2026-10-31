@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
-import { cancelBooking, getMemberBookings } from '@/lib/api';
-import { isCancellable, splitByTime } from '@/lib/bookings';
+import { cancelBooking, confirmWaitlistOffer, getMemberBookings, getMemberWaitlist, leaveWaitlist } from '@/lib/api';
+import { activeWaitlist, isCancellable, isOfferOpen, splitByTime } from '@/lib/bookings';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisDateTime } from '@/lib/paris-time';
-import type { Booking, Member } from '@/lib/types';
+import type { Booking, Member, WaitlistEntry } from '@/lib/types';
 import { useNow } from '@/lib/use-now';
 import { useResource } from '@/lib/use-resource';
 import { useMember } from '../member-context';
@@ -19,12 +19,12 @@ import { CalendarIcon, ClockIcon, UsersIcon } from '../ui/icons';
 import { TabPanel, Tabs } from '../ui/tabs';
 import { useToast } from '../ui/toast';
 
-type TabId = 'upcoming' | 'past';
+type TabId = 'upcoming' | 'waitlist' | 'past';
 
 const monthFormat = new Intl.DateTimeFormat('fr-FR', { month: 'short', timeZone: 'Europe/Paris' });
 const dayNumberFormat = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', timeZone: 'Europe/Paris' });
 
-function describe(booking: Booking): string {
+function describe(booking: Booking | WaitlistEntry): string {
   const start = parisDateTime(new Date(booking.startsAt));
   const end = parisDateTime(new Date(booking.endsAt));
   return `${booking.room.name}, ${formatDay(start.date)} de ${formatMinutes(start.minutes)} à ${formatMinutes(end.minutes)}`;
@@ -68,23 +68,59 @@ function Page({ children }: { children: ReactNode }) {
 
 function MemberBookings({ member }: { member: Member }) {
   const bookings = useResource(`member-bookings:${member.id}`, () => getMemberBookings(member.id));
+  const waitlist = useResource(`member-waitlist:${member.id}`, () => getMemberWaitlist(member.id));
   const now = useNow();
   const notify = useToast();
   const [tab, setTab] = useState<TabId>('upcoming');
   const [toCancel, setToCancel] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [pending, setPending] = useState<number | null>(null);
 
-  if (bookings.status === 'loading') return <ListSkeleton />;
-  if (bookings.status === 'error') {
+  if (bookings.status === 'loading' || waitlist.status === 'loading') return <ListSkeleton />;
+  if (bookings.status === 'error' || waitlist.status === 'error') {
     return (
       <Page>
-        <ErrorState message={messageFor(bookings.error)} onRetry={bookings.reload} />
+        <ErrorState
+          message={messageFor(bookings.error ?? waitlist.error)}
+          onRetry={() => {
+            bookings.reload();
+            waitlist.reload();
+          }}
+        />
       </Page>
     );
   }
 
   const { upcoming, past } = splitByTime(bookings.data, now);
+  const waiting = activeWaitlist(waitlist.data, now);
   const shown = tab === 'upcoming' ? upcoming : past;
+
+  async function confirmOffer(entry: WaitlistEntry) {
+    setPending(entry.id);
+    try {
+      await confirmWaitlistOffer(member.id, entry.id);
+      notify({ tone: 'success', title: 'Salle réservée', description: describe(entry) });
+      bookings.reload();
+    } catch (error) {
+      notify({ tone: 'danger', title: 'Confirmation impossible', description: messageFor(error) });
+    } finally {
+      setPending(null);
+      waitlist.reload();
+    }
+  }
+
+  async function leave(entry: WaitlistEntry) {
+    setPending(entry.id);
+    try {
+      await leaveWaitlist(member.id, entry.id);
+      notify({ tone: 'success', title: 'Inscription retirée', description: describe(entry) });
+    } catch (error) {
+      notify({ tone: 'danger', title: 'Désinscription impossible', description: messageFor(error) });
+    } finally {
+      setPending(null);
+      waitlist.reload();
+    }
+  }
 
   async function confirmCancel() {
     if (!toCancel) return;
@@ -111,11 +147,33 @@ function MemberBookings({ member }: { member: Member }) {
           onChange={setTab}
           tabs={[
             { id: 'upcoming', label: 'À venir', count: upcoming.length },
+            { id: 'waitlist', label: 'Liste d’attente', count: waiting.length },
             { id: 'past', label: 'Passées', count: past.length },
           ]}
         />
         <TabPanel idPrefix="my-bookings" id={tab}>
-          {shown.length === 0 ? (
+          {tab === 'waitlist' ? (
+            waiting.length === 0 ? (
+              <EmptyState
+                icon={<ClockIcon className="size-6" />}
+                title="Aucune inscription sur liste d’attente"
+                description="Quand un créneau est déjà pris, inscrivez-vous : si la réservation est annulée, vous êtes prévenu et avez 30 minutes pour confirmer."
+              />
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {waiting.map((entry) => (
+                  <WaitlistItem
+                    key={entry.id}
+                    entry={entry}
+                    now={now}
+                    busy={pending === entry.id}
+                    onConfirm={() => void confirmOffer(entry)}
+                    onLeave={() => void leave(entry)}
+                  />
+                ))}
+              </ul>
+            )
+          ) : shown.length === 0 ? (
             tab === 'upcoming' ? (
               <EmptyState
                 icon={<CalendarIcon className="size-6" />}
@@ -219,6 +277,59 @@ function BookingItem({
               Annuler<span className="sr-only"> la réservation « {booking.title} »</span>
             </Button>
           )}
+        </div>
+      </Card>
+    </li>
+  );
+}
+
+const timeFormat = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+
+function WaitlistItem({
+  entry,
+  now,
+  busy,
+  onConfirm,
+  onLeave,
+}: {
+  entry: WaitlistEntry;
+  now: Date;
+  busy: boolean;
+  onConfirm: () => void;
+  onLeave: () => void;
+}) {
+  const startTime = parisDateTime(new Date(entry.startsAt));
+  const endTime = parisDateTime(new Date(entry.endsAt));
+  const offered = isOfferOpen(entry, now);
+
+  return (
+    <li>
+      <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate font-medium">{entry.title}</h2>
+            {offered ? <Badge tone="success">Salle libérée</Badge> : <Badge>En attente</Badge>}
+          </div>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            <span className="first-letter:uppercase">{formatDay(startTime.date)}</span>,{' '}
+            {formatMinutes(startTime.minutes)} – {formatMinutes(endTime.minutes)} · {entry.room.name}
+          </p>
+          {offered && entry.offerExpiresAt && (
+            <p className="mt-1 text-sm font-medium">
+              La salle est à vous jusqu’à {timeFormat.format(new Date(entry.offerExpiresAt))} : confirmez pour la
+              réserver.
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2 self-start sm:self-center">
+          {offered && (
+            <Button size="sm" onClick={onConfirm} disabled={busy}>
+              Confirmer<span className="sr-only"> la réservation « {entry.title} »</span>
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={onLeave} disabled={busy}>
+            Me désinscrire<span className="sr-only"> de « {entry.title} »</span>
+          </Button>
         </div>
       </Card>
     </li>

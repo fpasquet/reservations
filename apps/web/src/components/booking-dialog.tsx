@@ -1,7 +1,7 @@
 'use client';
 
 import { type FormEvent, useState } from 'react';
-import { ApiError, createBooking } from '@/lib/api';
+import { ApiError, createBooking, joinWaitlist } from '@/lib/api';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisInstant, todayInParis } from '@/lib/paris-time';
 import { seatsLabel } from '@/lib/rooms';
@@ -88,6 +88,8 @@ function BookingForm({
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Le créneau est pris : le membre peut s'inscrire sur la liste d'attente.
+  const [canWait, setCanWait] = useState(false);
 
   const room = rooms.find((candidate) => String(candidate.id) === roomId);
 
@@ -122,14 +124,9 @@ function BookingForm({
     if (Object.keys(found).length > 0 || !room) return;
 
     setSubmitting(true);
+    setCanWait(false);
     try {
-      const booking = await createBooking(member.id, {
-        roomId: room.id,
-        title: title.trim(),
-        attendees: attendees === '' ? null : Number(attendees),
-        startsAt: parisInstant(date, start).toISOString(),
-        endsAt: parisInstant(date, end).toISOString(),
-      });
+      const booking = await createBooking(member.id, requestFor(room));
       notify({
         tone: 'success',
         title: 'Salle réservée',
@@ -142,10 +139,40 @@ function BookingForm({
         setErrors({ [field]: messageFor(error) });
       } else {
         setFormError(messageFor(error));
+        setCanWait(error instanceof ApiError && error.code === 'ROOM_ALREADY_BOOKED');
       }
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function wait() {
+    if (!member || !room) return;
+    setSubmitting(true);
+    try {
+      await joinWaitlist(member.id, requestFor(room));
+      notify({
+        tone: 'success',
+        title: 'Inscription sur liste d’attente',
+        description: `${room.name}, ${formatDay(date)} de ${formatMinutes(start)} à ${formatMinutes(end)}. Si la réservation est annulée, vous aurez 30 minutes pour confirmer, dans « Mes réservations ».`,
+      });
+      onCancel();
+    } catch (error) {
+      setFormError(messageFor(error));
+      setCanWait(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function requestFor(chosen: Room) {
+    return {
+      roomId: chosen.id,
+      title: title.trim(),
+      attendees: attendees === '' ? null : Number(attendees),
+      startsAt: parisInstant(date, start).toISOString(),
+      endsAt: parisInstant(date, end).toISOString(),
+    };
   }
 
   const endHint = end > start ? `Durée : ${durationLabel(end - start)}` : undefined;
@@ -243,6 +270,11 @@ function BookingForm({
         <Button variant="secondary" onClick={onCancel}>
           Annuler
         </Button>
+        {canWait && (
+          <Button variant="secondary" onClick={() => void wait()} disabled={submitting}>
+            Me mettre sur liste d’attente
+          </Button>
+        )}
         <Button type="submit" disabled={submitting}>
           {submitting ? 'Réservation…' : 'Réserver'}
         </Button>

@@ -30,6 +30,20 @@ export interface Booking {
   cancelledAt: string | null;
 }
 
+/** Inscription sur liste d'attente ; `offeredAt` est posé quand la salle s'est libérée et que le membre a été prévenu. */
+export interface WaitlistEntry {
+  id: number;
+  room: { id: number; name: string };
+  member: { id: number; fullName: string };
+  title: string;
+  attendees: number | null;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+  offeredAt: string | null;
+  offerExpiresAt: string | null;
+}
+
 export interface BookingRequest {
   roomId: number;
   title: string;

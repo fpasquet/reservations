@@ -77,7 +77,7 @@ function BookingForm({
   onCancel: () => void;
   onBooked: (booking: Booking) => void;
 }) {
-  const { member } = useMember();
+  const { member, reloadCredit } = useMember();
   const notify = useToast();
   const [roomId, setRoomId] = useState(draft.roomId === null ? '' : String(draft.roomId));
   const [date, setDate] = useState(draft.date);
@@ -135,6 +135,7 @@ function BookingForm({
         title: 'Salle réservée',
         description: `${room.name}, ${formatDay(date)} de ${formatMinutes(start)} à ${formatMinutes(end)}.`,
       });
+      reloadCredit();
       onBooked(booking);
     } catch (error) {
       const field = error instanceof ApiError && error.field ? API_FIELDS[error.field] : undefined;

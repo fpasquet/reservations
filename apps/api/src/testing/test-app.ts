@@ -41,8 +41,9 @@ export const rooms: Room[] = [
 ];
 
 export const members: Member[] = [
-  { id: 1, fullName: 'Camille Martin', email: 'camille@studio-ondes.fr', company: 'Studio Ondes' },
-  { id: 2, fullName: 'Yanis Benali', email: 'yanis@benali.dev', company: 'Indépendant' },
+  { id: 1, fullName: 'Camille Martin', email: 'camille@studio-ondes.fr', company: 'Studio Ondes', plan: 'resident' },
+  { id: 2, fullName: 'Yanis Benali', email: 'yanis@benali.dev', company: 'Indépendant', plan: 'nomade' },
+  { id: 3, fullName: 'Léa Fournier', email: 'lea@atelier-pivot.fr', company: 'Atelier Pivot', plan: 'equipe' },
 ];
 
 export interface TestApp {

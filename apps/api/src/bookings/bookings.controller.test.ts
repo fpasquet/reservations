@@ -151,4 +151,81 @@ describe('bookings', () => {
       expect((await api.http.delete('/bookings/99').set('X-Member-Id', '1')).status).toBe(404);
     });
   });
+
+  describe('hours credit', () => {
+    const wednesday = '2026-11-04';
+    const thursday = '2026-11-05';
+    const day = (date: string, from: string, to: string) => ({ startsAt: at(date, from), endsAt: at(date, to) });
+    // Yanis (membre 2) est Nomade : 10 h par mois.
+    const fillNomadeCredit = async () => {
+      await book(day(tuesday, '09:00', '13:00'), '2');
+      await book(day(wednesday, '09:00', '13:00'), '2');
+      await book(day(thursday, '09:00', '11:00'), '2');
+    };
+    const credit = (memberId: number) => api.http.get(`/members/${memberId}/credit`);
+
+    it('refuses a booking beyond the credit with CREDIT_EXCEEDED', async () => {
+      await fillNomadeCredit();
+      const response = await book(day(thursday, '14:00', '14:15'), '2');
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({ code: 'CREDIT_EXCEEDED' });
+      expect(api.bookings.bookings).toHaveLength(3);
+    });
+
+    it('accepts a booking that uses the last hour exactly', async () => {
+      await book(day(tuesday, '09:00', '13:00'), '2');
+      await book(day(wednesday, '09:00', '13:00'), '2');
+      expect((await book(day(thursday, '09:00', '11:00'), '2')).status).toBe(201);
+    });
+
+    it('gives the hours back when a booking is cancelled before it starts', async () => {
+      await fillNomadeCredit();
+      await api.http.delete('/bookings/1').set('X-Member-Id', '2');
+      expect((await credit(2)).body).toMatchObject({ usedHours: 6, remainingHours: 4 });
+      expect((await book(day(thursday, '14:00', '18:00'), '2')).status).toBe(201);
+    });
+
+    it('keeps the hours of a booking that has started', async () => {
+      await fillNomadeCredit();
+      api.clock.current = new Date(at(tuesday, '10:00'));
+      expect((await api.http.delete('/bookings/1').set('X-Member-Id', '2')).status).toBe(400);
+      expect((await credit(2)).body).toMatchObject({ usedHours: 10, remainingHours: 0 });
+    });
+
+    it('counts each month apart, from the 1st at midnight in Paris', async () => {
+      await fillNomadeCredit();
+      // Le lundi 30 novembre à 19h est encore en novembre, le mardi 1er décembre à 9h est en décembre.
+      expect((await book(day('2026-11-30', '18:00', '19:00'), '2')).body).toMatchObject({ code: 'CREDIT_EXCEEDED' });
+      expect((await book(day('2026-12-01', '09:00', '13:00'), '2')).status).toBe(201);
+    });
+
+    it('does not carry unused hours over to the next month', async () => {
+      api.clock.current = new Date(at('2026-12-01', '08:00'));
+      expect((await credit(2)).body).toMatchObject({ month: '2026-12', monthlyHours: 10, remainingHours: 10 });
+      expect((await book(day('2026-12-02', '09:00', '13:00'), '2')).status).toBe(201);
+      expect((await book(day('2026-12-03', '09:00', '13:00'), '2')).status).toBe(201);
+      expect((await book(day('2026-12-04', '09:00', '13:00'), '2')).body).toMatchObject({ code: 'CREDIT_EXCEEDED' });
+    });
+
+    it('gives the Résident plan 40 hours', async () => {
+      expect((await credit(1)).body).toEqual({
+        plan: 'resident',
+        month: '2026-11',
+        monthlyHours: 40,
+        usedHours: 0,
+        remainingHours: 40,
+      });
+    });
+
+    it('does not limit the Équipe plan', async () => {
+      for (const date of [tuesday, wednesday, thursday, '2026-11-06', '2026-11-09', '2026-11-10']) {
+        expect((await book(day(date, '09:00', '13:00'), '3')).status).toBe(201);
+      }
+      expect((await credit(3)).body).toMatchObject({ plan: 'equipe', monthlyHours: null, remainingHours: null });
+    });
+
+    it('answers 404 for an unknown member', async () => {
+      expect((await credit(99)).status).toBe(404);
+    });
+  });
 });

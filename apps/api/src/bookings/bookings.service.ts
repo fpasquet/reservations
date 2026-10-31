@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { checkCredit, type Credit, creditOf, parisMonthRange, usedMinutes } from '../members/credit.js';
 import { MEMBERS_REPOSITORY, type MembersRepository } from '../members/members.repository.js';
 import { ROOMS_REPOSITORY, type RoomsRepository } from '../rooms/rooms.repository.js';
 import { CLOCK, type Clock } from '../shared/clock.js';
@@ -28,6 +29,26 @@ export class BookingsService {
     return this.bookings.listByMember(memberId);
   }
 
+  /** Le crédit d'heures du membre pour le mois en cours. */
+  async credit(memberId: number): Promise<Credit> {
+    const member = await this.members.get(memberId);
+    if (!member) throw new DomainError('MEMBER_NOT_FOUND', `member ${memberId} not found`);
+    const now = this.clock.now();
+    return creditOf(member.plan, now, await this.usedMinutesInMonthOf(memberId, now));
+  }
+
+  /** Une annulation rend les heures ; une réservation commencée ou libérée reste, donc se consomme. */
+  private async usedMinutesInMonthOf(memberId: number, instant: Date): Promise<number> {
+    const { from, to } = parisMonthRange(instant);
+    const bookings = await this.bookings.listByMember(memberId);
+    return usedMinutes(
+      bookings
+        .filter((booking) => booking.cancelledAt === null)
+        .map((booking) => ({ startsAt: new Date(booking.startsAt), endsAt: new Date(booking.endsAt) }))
+        .filter((slot) => slot.startsAt >= from && slot.startsAt < to),
+    );
+  }
+
   async create(memberId: number, request: BookingRequest): Promise<Booking> {
     const member = await this.members.get(memberId);
     if (!member) throw new DomainError('MEMBER_NOT_FOUND', `member ${memberId} not found`);
@@ -36,6 +57,7 @@ export class BookingsService {
 
     checkSlot(request, this.clock.now());
     checkCapacity(room, request.attendees);
+    checkCredit(member.plan, request, await this.usedMinutesInMonthOf(memberId, request.startsAt));
 
     const sameRoom = await this.bookings.listBetween(request.startsAt, request.endsAt, room.id);
     const conflict = sameRoom.find(

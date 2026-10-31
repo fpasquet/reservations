@@ -16,6 +16,18 @@ export interface Member {
   fullName: string;
   email: string;
   company: string;
+  plan: Plan;
+}
+
+export type Plan = 'nomade' | 'resident' | 'equipe';
+
+/** Les heures de salle d'un membre pour un mois ; `null` : formule illimitée. */
+export interface Credit {
+  plan: Plan;
+  month: string;
+  monthlyHours: number | null;
+  usedHours: number;
+  remainingHours: number | null;
 }
 
 export interface Booking {

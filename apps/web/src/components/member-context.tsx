@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useSyncExternalStore } from 'react';
-import { getMembers } from '@/lib/api';
-import type { Member } from '@/lib/types';
+import { getMemberCredit, getMembers } from '@/lib/api';
+import type { Credit, Member } from '@/lib/types';
 import { type Resource, useResource } from '@/lib/use-resource';
 
 // Pas encore d'authentification : le membre se choisit dans l'en-tête et reste mémorisé dans ce navigateur.
@@ -30,6 +30,10 @@ interface MemberContextValue {
   members: Resource<Member[]>;
   /** Le membre connecté, ou null s'il n'a pas encore choisi. */
   member: Member | null;
+  /** Les heures de salle du membre connecté pour le mois en cours. */
+  credit: Resource<Credit>;
+  /** À appeler quand une réservation est faite ou annulée. */
+  reloadCredit: () => void;
   selectMember: (id: number | null) => void;
 }
 
@@ -50,7 +54,12 @@ export function MemberProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const member = members.data?.find((candidate) => String(candidate.id) === storedId) ?? null;
-  const value = useMemo(() => ({ members, member, selectMember }), [members, member, selectMember]);
+  const credit = useResource(member ? `credit:${member.id}` : null, () => getMemberCredit(member?.id ?? 0));
+  const reloadCredit = credit.reload;
+  const value = useMemo(
+    () => ({ members, member, credit, reloadCredit, selectMember }),
+    [members, member, credit, reloadCredit, selectMember],
+  );
   return <MemberContext.Provider value={value}>{children}</MemberContext.Provider>;
 }
 

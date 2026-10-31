@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { CreditBadge } from './credit-badge';
 import { MemberPicker } from './member-picker';
 import { cn } from './ui/cn';
 
@@ -34,7 +35,8 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <div className="ml-auto lg:order-last">
+        <div className="ml-auto flex items-center gap-4 lg:order-last">
+          <CreditBadge />
           <MemberPicker />
         </div>
 

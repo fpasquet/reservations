@@ -1,4 +1,4 @@
-import type { Booking, BookingRequest, Equipment, Member, Room } from './types';
+import type { Booking, BookingRequest, Credit, Equipment, Member, Room } from './types';
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -64,6 +64,8 @@ export function getRooms({ capacity, equipment = [] }: RoomFilters = {}): Promis
 export const getRoom = (id: number) => request<Room>(`/rooms/${id}`);
 
 export const getMembers = () => request<Member[]>('/members');
+
+export const getMemberCredit = (memberId: number) => request<Credit>(`/members/${memberId}/credit`);
 
 export function getDayPlanning(date: string, roomId?: number): Promise<Booking[]> {
   const query = new URLSearchParams({ date });

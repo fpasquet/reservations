@@ -326,9 +326,20 @@ try {
   }
   for (const row of rows) {
     await client.query(
-      `insert into booking (room_id, member_id, title, attendees, starts_at, ends_at, created_at, cancelled_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [row.room, row.member, row.title, row.attendees, row.startsAt, row.endsAt, row.createdAt, row.cancelledAt],
+      `insert into booking (room_id, member_id, title, attendees, starts_at, ends_at, created_at, cancelled_at, arrived_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        row.room,
+        row.member,
+        row.title,
+        row.attendees,
+        row.startsAt,
+        row.endsAt,
+        row.createdAt,
+        row.cancelledAt,
+        // Every started booking of the sample was attended, otherwise it would show up as released.
+        row.cancelledAt === null && row.startsAt <= now ? row.startsAt : null,
+      ],
     );
   }
   await client.query('commit');

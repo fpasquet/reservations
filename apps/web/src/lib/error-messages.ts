@@ -19,7 +19,10 @@ const MESSAGES: Record<string, string> = {
   IN_THE_PAST: 'Ce créneau est déjà passé.',
   OVER_CAPACITY: 'La salle ne peut pas accueillir autant de participants.',
   ROOM_ALREADY_BOOKED: 'La salle est déjà réservée sur une partie de ce créneau.',
-  NOT_YOUR_BOOKING: 'Seule la personne qui a réservé peut annuler.',
+  NOT_YOUR_BOOKING: 'Seule la personne qui a réservé peut annuler ou signaler son arrivée.',
+  BOOKING_RELEASED:
+    'Cette réservation a été libérée : l’arrivée n’a pas été signalée dans les 15 minutes après le début.',
+  TOO_EARLY_FOR_ARRIVAL: 'Vous pourrez signaler votre arrivée 15 minutes avant le début de la réservation.',
   ALREADY_STARTED: 'Cette réservation a déjà commencé, elle ne peut plus être annulée.',
   ALREADY_CANCELLED: 'Cette réservation est déjà annulée.',
 };

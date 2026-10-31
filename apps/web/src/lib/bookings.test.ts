@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isCancellable, splitByTime } from './bookings';
+import { canSignalArrival, isCancellable, splitByTime } from './bookings';
 import type { Booking } from './types';
 
 const now = new Date('2026-11-03T09:00:00Z');
@@ -15,6 +15,8 @@ function booking(id: number, startsAt: string, endsAt: string, cancelledAt: stri
     endsAt,
     createdAt: '2026-10-30T10:00:00Z',
     cancelledAt,
+    arrivedAt: null,
+    releasedAt: null,
   };
 }
 
@@ -43,5 +45,25 @@ describe('isCancellable', () => {
     expect(isCancellable(booking(1, '2026-11-03T10:00:00Z', '2026-11-03T11:00:00Z', '2026-11-02T10:00:00Z'), now)).toBe(
       false,
     );
+  });
+});
+
+describe('canSignalArrival', () => {
+  // now = 09:00Z
+  it('is true from 15 minutes before the start until the release', () => {
+    expect(canSignalArrival(booking(1, '2026-11-03T09:15:00Z', '2026-11-03T10:00:00Z'), now)).toBe(true);
+    expect(canSignalArrival(booking(1, '2026-11-03T08:46:00Z', '2026-11-03T10:00:00Z'), now)).toBe(true);
+  });
+
+  it('is false too early or once the 15 minutes have elapsed', () => {
+    expect(canSignalArrival(booking(1, '2026-11-03T09:16:00Z', '2026-11-03T10:00:00Z'), now)).toBe(false);
+    expect(canSignalArrival(booking(1, '2026-11-03T08:45:00Z', '2026-11-03T10:00:00Z'), now)).toBe(false);
+  });
+
+  it('is false once arrived, released or cancelled', () => {
+    const base = booking(1, '2026-11-03T09:00:00Z', '2026-11-03T10:00:00Z');
+    expect(canSignalArrival({ ...base, arrivedAt: '2026-11-03T08:58:00Z' }, now)).toBe(false);
+    expect(canSignalArrival({ ...base, releasedAt: '2026-11-03T09:15:00Z' }, now)).toBe(false);
+    expect(canSignalArrival({ ...base, cancelledAt: '2026-11-02T10:00:00Z' }, now)).toBe(false);
   });
 });

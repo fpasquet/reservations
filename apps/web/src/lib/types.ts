@@ -28,6 +28,9 @@ export interface Booking {
   endsAt: string;
   createdAt: string;
   cancelledAt: string | null;
+  arrivedAt: string | null;
+  /** Set when the arrival was not signaled in time: the room was freed at this instant. */
+  releasedAt: string | null;
 }
 
 export interface BookingRequest {

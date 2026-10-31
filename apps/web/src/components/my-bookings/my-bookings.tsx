@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
-import { cancelBooking, getMemberBookings } from '@/lib/api';
-import { isCancellable, splitByTime } from '@/lib/bookings';
+import { cancelBooking, getMemberBookings, signalArrival } from '@/lib/api';
+import { canSignalArrival, isCancellable, splitByTime } from '@/lib/bookings';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisDateTime } from '@/lib/paris-time';
 import type { Booking, Member } from '@/lib/types';
@@ -73,6 +73,7 @@ function MemberBookings({ member }: { member: Member }) {
   const [tab, setTab] = useState<TabId>('upcoming');
   const [toCancel, setToCancel] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [arriving, setArriving] = useState<number | null>(null);
 
   if (bookings.status === 'loading') return <ListSkeleton />;
   if (bookings.status === 'error') {
@@ -85,6 +86,19 @@ function MemberBookings({ member }: { member: Member }) {
 
   const { upcoming, past } = splitByTime(bookings.data, now);
   const shown = tab === 'upcoming' ? upcoming : past;
+
+  async function arrive(booking: Booking) {
+    setArriving(booking.id);
+    try {
+      await signalArrival(member.id, booking.id);
+      notify({ tone: 'success', title: 'Arrivée signalée', description: describe(booking) });
+    } catch (error) {
+      notify({ tone: 'danger', title: 'Arrivée non enregistrée', description: messageFor(error) });
+    } finally {
+      setArriving(null);
+      bookings.reload();
+    }
+  }
 
   async function confirmCancel() {
     if (!toCancel) return;
@@ -137,6 +151,9 @@ function MemberBookings({ member }: { member: Member }) {
                   key={booking.id}
                   booking={booking}
                   cancellable={isCancellable(booking, now)}
+                  arrivable={canSignalArrival(booking, now)}
+                  arriving={arriving === booking.id}
+                  onArrive={() => void arrive(booking)}
                   isToday={parisDateTime(new Date(booking.startsAt)).date === parisDateTime(now).date}
                   onCancel={() => setToCancel(booking)}
                 />
@@ -171,22 +188,30 @@ function MemberBookings({ member }: { member: Member }) {
 function BookingItem({
   booking,
   cancellable,
+  arrivable,
+  arriving,
   isToday,
   onCancel,
+  onArrive,
 }: {
   booking: Booking;
   cancellable: boolean;
+  arrivable: boolean;
+  arriving: boolean;
   isToday: boolean;
   onCancel: () => void;
+  onArrive: () => void;
 }) {
   const start = new Date(booking.startsAt);
   const startTime = parisDateTime(start);
   const endTime = parisDateTime(new Date(booking.endsAt));
   const cancelled = booking.cancelledAt !== null;
+  const released = booking.releasedAt !== null;
+  const inactive = cancelled || released;
 
   return (
     <li>
-      <Card className={`flex gap-4 p-4 ${cancelled ? 'opacity-70' : ''}`}>
+      <Card className={`flex gap-4 p-4 ${inactive ? 'opacity-70' : ''}`}>
         <div
           aria-hidden="true"
           className="flex w-14 shrink-0 flex-col items-center justify-center rounded-control bg-surface-muted py-2"
@@ -197,9 +222,11 @@ function BookingItem({
         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className={`truncate font-medium ${cancelled ? 'line-through' : ''}`}>{booking.title}</h2>
+              <h2 className={`truncate font-medium ${inactive ? 'line-through' : ''}`}>{booking.title}</h2>
               {cancelled && <Badge tone="danger">Annulée</Badge>}
-              {!cancelled && isToday && <Badge tone="primary">Aujourd’hui</Badge>}
+              {released && <Badge tone="warning">Libérée</Badge>}
+              {booking.arrivedAt !== null && <Badge tone="success">Arrivée signalée</Badge>}
+              {!inactive && isToday && <Badge tone="primary">Aujourd’hui</Badge>}
             </div>
             <p className="mt-0.5 text-sm text-ink-muted">
               <span className="first-letter:uppercase">{formatDay(startTime.date)}</span>,{' '}
@@ -214,6 +241,12 @@ function BookingItem({
                 ` · ${booking.attendees > 1 ? `${booking.attendees} participants` : '1 participant'}`}
             </p>
           </div>
+          {arrivable && (
+            <Button size="sm" onClick={onArrive} disabled={arriving} className="self-start sm:self-center">
+              {arriving ? 'Enregistrement…' : 'Je suis arrivé'}
+              <span className="sr-only"> pour la réservation « {booking.title} »</span>
+            </Button>
+          )}
           {cancellable && (
             <Button variant="secondary" size="sm" onClick={onCancel} className="self-start sm:self-center">
               Annuler<span className="sr-only"> la réservation « {booking.title} »</span>

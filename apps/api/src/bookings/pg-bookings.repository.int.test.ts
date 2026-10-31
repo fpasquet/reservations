@@ -119,6 +119,15 @@ describe('PgBookingsRepository.cancel', () => {
     expect((await bookings.get(created.id))?.cancelledAt).toBe('2026-11-02T16:20:00.000Z');
   });
 
+  it('stores the time of the arrival', async () => {
+    const created = await book({ from: 9 * 60, to: 10 * 60 });
+    expect(created.arrivedAt).toBeNull();
+
+    const arrived = await bookings.markArrived(created.id, new Date('2026-11-03T08:02:00Z'));
+    expect(arrived.arrivedAt).toBe('2026-11-03T08:02:00.000Z');
+    expect((await bookings.get(created.id))?.arrivedAt).toBe('2026-11-03T08:02:00.000Z');
+  });
+
   it('gives null for an unknown booking', async () => {
     expect(await bookings.get(42)).toBeNull();
   });

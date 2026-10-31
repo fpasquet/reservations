@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { Room } from '../rooms/room.js';
 import { DomainError } from '../shared/domain-error.js';
 import type { Booking } from './booking.js';
-import { checkCancellation, checkCapacity, checkSlot, overlaps } from './booking-rules.js';
+import {
+  checkArrival,
+  checkCancellation,
+  checkCapacity,
+  checkSlot,
+  isReleased,
+  overlaps,
+  withRelease,
+} from './booking-rules.js';
 
 // Novembre : Paris est à UTC+1.
 const at = (date: string, time: string) => new Date(`${date}T${time}:00+01:00`);
@@ -126,6 +134,8 @@ const booking: Booking = {
   endsAt: at('2026-11-03', '11:00').toISOString(),
   createdAt: at('2026-10-30', '16:00').toISOString(),
   cancelledAt: null,
+  arrivedAt: null,
+  releasedAt: null,
 };
 
 describe('checkCancellation', () => {
@@ -144,5 +154,58 @@ describe('checkCancellation', () => {
   it('refuses a booking already cancelled', () => {
     const cancelled = { ...booking, cancelledAt: now.toISOString() };
     expect(errorOf(() => checkCancellation(cancelled, 2, now)).code).toBe('ALREADY_CANCELLED');
+  });
+
+  it('refuses a released booking', () => {
+    expect(errorOf(() => checkCancellation(booking, 2, at('2026-11-03', '10:15'))).code).toBe('BOOKING_RELEASED');
+  });
+});
+
+describe('isReleased', () => {
+  it('keeps the booking until 15 minutes after its start', () => {
+    expect(isReleased(booking, at('2026-11-03', '10:14'))).toBe(false);
+  });
+
+  it('releases it from the 15th minute when no arrival was signaled', () => {
+    expect(isReleased(booking, at('2026-11-03', '10:15'))).toBe(true);
+  });
+
+  it('never releases a booking whose arrival was signaled', () => {
+    const arrived = { ...booking, arrivedAt: at('2026-11-03', '10:05').toISOString() };
+    expect(isReleased(arrived, at('2026-11-03', '10:45'))).toBe(false);
+  });
+
+  it('does not call a cancelled booking released', () => {
+    const cancelled = { ...booking, cancelledAt: now.toISOString() };
+    expect(isReleased(cancelled, at('2026-11-03', '10:45'))).toBe(false);
+  });
+
+  it('tells when the release happened', () => {
+    expect(withRelease(booking, at('2026-11-03', '11:00')).releasedAt).toBe(at('2026-11-03', '10:15').toISOString());
+    expect(withRelease(booking, at('2026-11-03', '10:00')).releasedAt).toBeNull();
+  });
+});
+
+describe('checkArrival', () => {
+  it('accepts the booking member just before and after the start', () => {
+    expect(() => checkArrival(booking, 2, at('2026-11-03', '09:45'))).not.toThrow();
+    expect(() => checkArrival(booking, 2, at('2026-11-03', '10:14'))).not.toThrow();
+  });
+
+  it('refuses another member', () => {
+    expect(errorOf(() => checkArrival(booking, 3, at('2026-11-03', '10:05'))).code).toBe('NOT_YOUR_BOOKING');
+  });
+
+  it('refuses a released booking', () => {
+    expect(errorOf(() => checkArrival(booking, 2, at('2026-11-03', '10:15'))).code).toBe('BOOKING_RELEASED');
+  });
+
+  it('refuses a cancelled booking', () => {
+    const cancelled = { ...booking, cancelledAt: now.toISOString() };
+    expect(errorOf(() => checkArrival(cancelled, 2, at('2026-11-03', '10:05'))).code).toBe('ALREADY_CANCELLED');
+  });
+
+  it('refuses an arrival long before the start', () => {
+    expect(errorOf(() => checkArrival(booking, 2, at('2026-11-03', '09:30'))).code).toBe('TOO_EARLY_FOR_ARRIVAL');
   });
 });

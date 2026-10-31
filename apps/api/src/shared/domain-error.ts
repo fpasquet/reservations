@@ -17,7 +17,9 @@ export type ErrorCode =
   | 'ROOM_ALREADY_BOOKED'
   | 'NOT_YOUR_BOOKING'
   | 'ALREADY_STARTED'
-  | 'ALREADY_CANCELLED';
+  | 'ALREADY_CANCELLED'
+  | 'BOOKING_RELEASED'
+  | 'TOO_EARLY_FOR_ARRIVAL';
 
 const STATUS: Partial<Record<ErrorCode, number>> = {
   ROOM_NOT_FOUND: 404,
@@ -26,6 +28,7 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   NOT_YOUR_BOOKING: 403,
   ROOM_ALREADY_BOOKED: 409,
   ALREADY_CANCELLED: 409,
+  BOOKING_RELEASED: 409,
 };
 
 /** Une règle métier refuse la demande ; `field` désigne le champ en cause, s'il y en a un. */

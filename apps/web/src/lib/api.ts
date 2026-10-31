@@ -76,5 +76,8 @@ export const getMemberBookings = (memberId: number) => request<Booking[]>(`/book
 export const createBooking = (memberId: number, booking: BookingRequest) =>
   request<Booking>('/bookings', { method: 'POST', body: booking, memberId });
 
+export const signalArrival = (memberId: number, bookingId: number) =>
+  request<Booking>(`/bookings/${bookingId}/arrival`, { method: 'POST', memberId });
+
 export const cancelBooking = (memberId: number, bookingId: number) =>
   request<Booking>(`/bookings/${bookingId}`, { method: 'DELETE', memberId });

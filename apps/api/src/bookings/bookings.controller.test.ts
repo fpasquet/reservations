@@ -98,6 +98,15 @@ describe('bookings', () => {
       ]);
     });
 
+    it('leaves cancelled bookings out of the planning but keeps them for the member', async () => {
+      const id = ((await book()).body as { id: number }).id;
+      await api.http.delete(`/bookings/${id}`).set('X-Member-Id', '1');
+      const planning = await api.http.get(`/bookings?date=${tuesday}`);
+      expect(planning.body).toEqual([]);
+      const mine = await api.http.get('/bookings?memberId=1');
+      expect(mine.body).toMatchObject([{ id, cancelledAt: expect.any(String) as unknown }]);
+    });
+
     it('narrows the planning to one room', async () => {
       await book();
       await book({ roomId: 3 });

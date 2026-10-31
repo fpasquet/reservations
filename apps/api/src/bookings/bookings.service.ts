@@ -17,10 +17,11 @@ export class BookingsService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  /** Le planning d'une journée (YYYY-MM-DD, à Paris), de toutes les salles ou d'une seule. */
-  dayPlanning(date: string, roomId?: number): Promise<Booking[]> {
+  /** Le planning d'une journée (YYYY-MM-DD, à Paris), de toutes les salles ou d'une seule, sans les annulées. */
+  async dayPlanning(date: string, roomId?: number): Promise<Booking[]> {
     const { from, to } = parisDayRange(date);
-    return this.bookings.listBetween(from, to, roomId);
+    const bookings = await this.bookings.listBetween(from, to, roomId);
+    return bookings.filter((booking) => booking.cancelledAt === null);
   }
 
   /** Toutes les réservations d'un membre, annulées comprises. */

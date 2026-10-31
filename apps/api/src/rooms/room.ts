@@ -19,12 +19,19 @@ export interface RoomFilters {
   minCapacity?: number;
   /** La salle doit avoir tous ces équipements. */
   equipment: Equipment[];
+  /** Fragment du nom, déjà passé par `normalizeSearch`. */
+  search?: string;
+}
+
+/** Minuscules et sans accents, pour comparer des noms. */
+export function normalizeSearch(value: string): string {
+  return value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
 }
 
 const isEquipment = (value: string): value is Equipment => (EQUIPMENT as readonly string[]).includes(value);
 
 /** Filtres de la liste des salles : `?capacity=6&equipment=screen,whiteboard`. */
-export function parseRoomFilters(query: { capacity?: unknown; equipment?: unknown }): RoomFilters {
+export function parseRoomFilters(query: { capacity?: unknown; equipment?: unknown; search?: unknown }): RoomFilters {
   const filters: RoomFilters = { equipment: [] };
   if (query.capacity !== undefined && query.capacity !== '') {
     const capacity = Number(query.capacity);
@@ -40,6 +47,10 @@ export function parseRoomFilters(query: { capacity?: unknown; equipment?: unknow
       }
       filters.equipment.push(value);
     }
+  }
+  if (typeof query.search === 'string') {
+    const search = normalizeSearch(query.search);
+    if (search !== '') filters.search = search;
   }
   return filters;
 }

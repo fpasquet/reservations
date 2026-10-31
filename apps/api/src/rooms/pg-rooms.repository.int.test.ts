@@ -45,6 +45,15 @@ describe('PgRoomsRepository', () => {
     expect(await rooms.list({ minCapacity: 20, equipment: [] })).toEqual([]);
   });
 
+  it('searches by name, ignoring case and accents', async () => {
+    await insertRoom(db, { name: 'Salle Éclair', floor: 2, capacity: 4 });
+    const names = async (search: string) => (await rooms.list({ equipment: [], search })).map((room) => room.name);
+    expect(await names('eclair')).toEqual(['Salle Éclair']);
+    expect(await names('serre')).toEqual(['La Serre']);
+    expect(await names('%')).toEqual([]);
+    expect(await names('e')).toHaveLength(4);
+  });
+
   it('gives one room, or null', async () => {
     expect(await rooms.get(2)).toMatchObject({ id: 2, name: 'Cabine 1', color: '#5b8a72', description: '' });
     expect(await rooms.get(99)).toBeNull();

@@ -8,7 +8,7 @@ export class RoomsController {
   constructor(@Inject(ROOMS_REPOSITORY) private readonly rooms: RoomsRepository) {}
 
   @Get()
-  list(@Query() query: { capacity?: string; equipment?: string }): Promise<Room[]> {
+  list(@Query() query: { capacity?: string; equipment?: string; search?: string }): Promise<Room[]> {
     return this.rooms.list(parseRoomFilters(query));
   }
 

@@ -12,7 +12,7 @@ import { Card } from '../ui/card';
 import { cn } from '../ui/cn';
 import { EmptyState, ErrorState, LoadingLabel, Skeleton } from '../ui/feedback';
 import { LayersIcon } from '../ui/icons';
-import { Label } from '../ui/input';
+import { Input, Label } from '../ui/input';
 import { Select } from '../ui/select';
 import { RoomCard } from './room-card';
 
@@ -21,10 +21,11 @@ const CAPACITIES = [2, 4, 6, 10, 15];
 export function RoomsBrowser() {
   const [capacity, setCapacity] = useState<number | null>(null);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const rooms = useResource(`rooms:${capacity ?? ''}:${equipment.join(',')}`, () =>
-    getRooms({ capacity: capacity ?? undefined, equipment }),
+  const [search, setSearch] = useState('');
+  const rooms = useResource(`rooms:${capacity ?? ''}:${equipment.join(',')}:${search.trim()}`, () =>
+    getRooms({ capacity: capacity ?? undefined, equipment, search }),
   );
-  const filtered = capacity !== null || equipment.length > 0;
+  const filtered = capacity !== null || equipment.length > 0 || search.trim() !== '';
 
   const toggle = (item: Equipment) =>
     setEquipment((current) =>
@@ -36,6 +37,7 @@ export function RoomsBrowser() {
   const clear = () => {
     setCapacity(null);
     setEquipment([]);
+    setSearch('');
   };
 
   return (
@@ -46,6 +48,16 @@ export function RoomsBrowser() {
       </div>
 
       <Card className="flex flex-col gap-4 p-4 md:flex-row md:items-end">
+        <div className="flex flex-col gap-1.5 md:w-52">
+          <Label htmlFor="rooms-search">Nom de la salle</Label>
+          <Input
+            id="rooms-search"
+            type="search"
+            value={search}
+            placeholder="Rechercher une salle"
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
         <div className="flex flex-col gap-1.5 md:w-52">
           <Label htmlFor="rooms-capacity">Capacité</Label>
           <Select
@@ -112,7 +124,7 @@ export function RoomsBrowser() {
         <EmptyState
           icon={<LayersIcon className="size-6" />}
           title="Aucune salle ne correspond"
-          description="Essayez une capacité plus petite ou moins d’équipements."
+          description="Essayez un autre nom, une capacité plus petite ou moins d’équipements."
           action={
             <Button variant="secondary" onClick={clear}>
               Effacer les filtres

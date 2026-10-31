@@ -21,6 +21,27 @@ describe('parisDayRange', () => {
   });
 });
 
+describe('daylight saving days', () => {
+  it('keeps 8h00 to 20h00 on the spring change (29 March 2026)', () => {
+    expect(parisInstant('2026-03-29', 8 * 60).toISOString()).toBe('2026-03-29T06:00:00.000Z');
+    expect(parisInstant('2026-03-29', 20 * 60).toISOString()).toBe('2026-03-29T18:00:00.000Z');
+  });
+
+  it('keeps 8h00 to 20h00 on the autumn change (25 October 2026)', () => {
+    expect(parisInstant('2026-10-25', 8 * 60).toISOString()).toBe('2026-10-25T07:00:00.000Z');
+    expect(parisInstant('2026-10-25', 20 * 60).toISOString()).toBe('2026-10-25T19:00:00.000Z');
+  });
+
+  it('gives a 23 hour day in spring and a 25 hour day in autumn', () => {
+    const hours = (date: string) => {
+      const { from, to } = parisDayRange(date);
+      return (to.getTime() - from.getTime()) / 3_600_000;
+    };
+    expect(hours('2026-03-29')).toBe(23);
+    expect(hours('2026-10-25')).toBe(25);
+  });
+});
+
 describe('isIsoDate', () => {
   it('accepts real calendar dates only', () => {
     expect(isIsoDate('2026-02-28')).toBe(true);

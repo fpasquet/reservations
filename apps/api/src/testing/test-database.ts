@@ -8,11 +8,12 @@ export async function clearTables(db: pg.Pool): Promise<void> {
 
 export async function insertRoom(
   db: pg.Pool,
-  room: { name: string; floor?: number; capacity: number; equipment?: Equipment[] },
+  room: { name: string; floor?: number; capacity: number; equipment?: Equipment[]; hourlyRateCents?: number },
 ): Promise<number> {
   const { rows } = await db.query<{ id: number }>(
-    `insert into room (name, floor, capacity, equipment, color) values ($1, $2, $3, $4, '#5b8a72') returning id`,
-    [room.name, room.floor ?? 0, room.capacity, room.equipment ?? []],
+    `insert into room (name, floor, capacity, equipment, color, hourly_rate_cents)
+     values ($1, $2, $3, $4, '#5b8a72', $5) returning id`,
+    [room.name, room.floor ?? 0, room.capacity, room.equipment ?? [], room.hourlyRateCents ?? 0],
   );
   return rows[0]!.id;
 }

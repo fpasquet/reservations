@@ -27,8 +27,18 @@ export const rooms: Room[] = [
     equipment: ['screen', 'whiteboard'],
     color: '#5b8a72',
     description: '',
+    hourlyRateCents: 2200,
   },
-  { id: 2, name: 'Cabine 1', floor: 0, capacity: 2, equipment: ['videoconference'], color: '#c0703f', description: '' },
+  {
+    id: 2,
+    name: 'Cabine 1',
+    floor: 0,
+    capacity: 2,
+    equipment: ['videoconference'],
+    color: '#c0703f',
+    description: '',
+    hourlyRateCents: 800,
+  },
   {
     id: 3,
     name: 'Atelier',
@@ -37,6 +47,7 @@ export const rooms: Room[] = [
     equipment: ['screen', 'videoconference', 'whiteboard', 'step_free_access'],
     color: '#3f6fb0',
     description: '',
+    hourlyRateCents: 2200,
   },
 ];
 

@@ -91,6 +91,7 @@ const room: Room = {
   equipment: [],
   color: '#5b8a72',
   description: '',
+  hourlyRateCents: 2200,
 };
 
 describe('checkCapacity', () => {

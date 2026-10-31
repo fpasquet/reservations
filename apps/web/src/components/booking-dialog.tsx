@@ -4,7 +4,7 @@ import { type FormEvent, useState } from 'react';
 import { ApiError, createBooking } from '@/lib/api';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisInstant, todayInParis } from '@/lib/paris-time';
-import { seatsLabel } from '@/lib/rooms';
+import { bookingCostCents, formatEuros, hourlyRateLabel, seatsLabel } from '@/lib/rooms';
 import { CLOSING_TIME, DEFAULT_DURATION, OPENING_TIME, STEP_MINUTES, timeOptions } from '@/lib/schedule';
 import type { Booking, Room } from '@/lib/types';
 import { useMember } from './member-context';
@@ -149,6 +149,7 @@ function BookingForm({
   }
 
   const endHint = end > start ? `Durée : ${durationLabel(end - start)}` : undefined;
+  const cost = room && end > start ? bookingCostCents(room.hourlyRateCents, end - start) : null;
   const attendeesHint = room ? `Facultatif · jusqu’à ${seatsLabel(room.capacity)}` : 'Facultatif';
 
   return (
@@ -169,7 +170,7 @@ function BookingForm({
           <option value="">Choisir une salle</option>
           {rooms.map((candidate) => (
             <option key={candidate.id} value={candidate.id}>
-              {candidate.name} · {seatsLabel(candidate.capacity)}
+              {candidate.name} · {seatsLabel(candidate.capacity)} · {hourlyRateLabel(candidate.hourlyRateCents)}
             </option>
           ))}
         </Select>
@@ -238,6 +239,18 @@ function BookingForm({
           className="sm:w-40"
         />
       </Field>
+
+      {room && cost !== null && (
+        <p
+          aria-live="polite"
+          className="flex items-baseline justify-between gap-3 rounded-control bg-surface-muted p-3 text-sm"
+        >
+          <span className="text-ink-muted">
+            Coût du créneau · {hourlyRateLabel(room.hourlyRateCents)} × {durationLabel(end - start)}
+          </span>
+          <strong className="font-semibold">{formatEuros(cost)} HT</strong>
+        </p>
+      )}
 
       <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onCancel}>

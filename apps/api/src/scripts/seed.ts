@@ -13,6 +13,7 @@ interface SeedRoom {
   equipment: Equipment[];
   color: string;
   description: string;
+  hourlyRateCents: number;
 }
 
 const rooms: SeedRoom[] = [
@@ -23,6 +24,7 @@ const rooms: SeedRoom[] = [
     equipment: ['screen', 'videoconference', 'whiteboard', 'step_free_access'],
     color: '#3f6fb0',
     description: 'Grande salle modulable côté rue, pour les ateliers, les formations et les meetups.',
+    hourlyRateCents: 4000,
   },
   {
     name: 'Cabine 1',
@@ -31,6 +33,7 @@ const rooms: SeedRoom[] = [
     equipment: ['videoconference', 'step_free_access'],
     color: '#c0703f',
     description: 'Cabine insonorisée pour les appels et les visios à deux.',
+    hourlyRateCents: 800,
   },
   {
     name: 'Cabine 2',
@@ -39,6 +42,7 @@ const rooms: SeedRoom[] = [
     equipment: ['videoconference', 'speakerphone', 'step_free_access'],
     color: '#d39a3a',
     description: 'Cabine insonorisée, avec pieuvre pour les conférences téléphoniques.',
+    hourlyRateCents: 800,
   },
   {
     name: 'Bibliothèque',
@@ -47,6 +51,7 @@ const rooms: SeedRoom[] = [
     equipment: ['whiteboard'],
     color: '#8a6d4b',
     description: 'Au calme entre les rayonnages, pour écrire ou réfléchir à plusieurs.',
+    hourlyRateCents: 1500,
   },
   {
     name: 'La Serre',
@@ -55,6 +60,7 @@ const rooms: SeedRoom[] = [
     equipment: ['screen', 'whiteboard'],
     color: '#5b8a72',
     description: 'Lumineuse et pleine de plantes, la salle des réunions d’équipe.',
+    hourlyRateCents: 2200,
   },
   {
     name: 'Studio',
@@ -63,6 +69,7 @@ const rooms: SeedRoom[] = [
     equipment: ['screen', 'videoconference', 'speakerphone'],
     color: '#2f8f9d',
     description: 'Traitée acoustiquement : caméra, micros et éclairage pour les visios et les enregistrements.',
+    hourlyRateCents: 2500,
   },
   {
     name: 'Petit Salon',
@@ -71,6 +78,7 @@ const rooms: SeedRoom[] = [
     equipment: ['screen', 'step_free_access'],
     color: '#b5546b',
     description: 'Canapés et écran, pour les rendez-vous clients et les points informels.',
+    hourlyRateCents: 1800,
   },
   {
     name: 'Salon Verrière',
@@ -79,6 +87,7 @@ const rooms: SeedRoom[] = [
     equipment: ['screen', 'videoconference', 'speakerphone', 'step_free_access'],
     color: '#6b5ca5',
     description: 'Sous la verrière, pour les présentations, les événements et les petits-déjeuners des membres.',
+    hourlyRateCents: 6000,
   },
   {
     name: "Salle d'Été",
@@ -87,6 +96,7 @@ const rooms: SeedRoom[] = [
     equipment: ['screen', 'whiteboard', 'step_free_access'],
     color: '#c58b2a',
     description: 'Ouverte sur le patio, pour les ateliers et les déjeuners d’équipe aux beaux jours.',
+    hourlyRateCents: 2000,
   },
 ];
 
@@ -313,8 +323,9 @@ try {
   await client.query('truncate booking, member, room restart identity cascade');
   for (const room of rooms) {
     await client.query(
-      'insert into room (name, floor, capacity, equipment, color, description) values ($1, $2, $3, $4, $5, $6)',
-      [room.name, room.floor, room.capacity, room.equipment, room.color, room.description],
+      `insert into room (name, floor, capacity, equipment, color, description, hourly_rate_cents)
+       values ($1, $2, $3, $4, $5, $6, $7)`,
+      [room.name, room.floor, room.capacity, room.equipment, room.color, room.description, room.hourlyRateCents],
     );
   }
   for (const member of members) {

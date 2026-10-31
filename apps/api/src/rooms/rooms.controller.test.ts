@@ -30,7 +30,11 @@ describe('rooms', () => {
   });
 
   it('gives one room, or 404', async () => {
-    expect((await api.http.get('/rooms/2')).body).toMatchObject({ name: 'Cabine 1', capacity: 2 });
+    expect((await api.http.get('/rooms/2')).body).toMatchObject({
+      name: 'Cabine 1',
+      capacity: 2,
+      hourlyRateCents: 800,
+    });
     expect((await api.http.get('/rooms/99')).body).toMatchObject({ statusCode: 404, code: 'ROOM_NOT_FOUND' });
     expect((await api.http.get('/rooms/salle')).status).toBe(404);
   });

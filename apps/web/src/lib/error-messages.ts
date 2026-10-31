@@ -19,6 +19,8 @@ const MESSAGES: Record<string, string> = {
   IN_THE_PAST: 'Ce créneau est déjà passé.',
   OVER_CAPACITY: 'La salle ne peut pas accueillir autant de participants.',
   ROOM_ALREADY_BOOKED: 'La salle est déjà réservée sur une partie de ce créneau.',
+  CREDIT_EXCEEDED:
+    'Vos heures de salle de ce mois sont épuisées : cette réservation dépasse le crédit de votre formule.',
   NOT_YOUR_BOOKING: 'Seule la personne qui a réservé peut annuler.',
   ALREADY_STARTED: 'Cette réservation a déjà commencé, elle ne peut plus être annulée.',
   ALREADY_CANCELLED: 'Cette réservation est déjà annulée.',

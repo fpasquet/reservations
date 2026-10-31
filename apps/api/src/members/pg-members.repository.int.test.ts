@@ -21,12 +21,18 @@ describe('PgMembersRepository', () => {
     expect((await members.list()).map((member) => member.fullName)).toEqual(['Camille Martin', 'Yanis Benali']);
   });
 
+  it('keeps the plan of a member', async () => {
+    await insertMember(db, 'Léa Fournier', 'Atelier Pivot', 'equipe');
+    expect((await members.get(3))?.plan).toBe('equipe');
+  });
+
   it('gives one member with the email and the company, or null', async () => {
     expect(await members.get(1)).toEqual({
       id: 1,
       fullName: 'Yanis Benali',
       email: 'yanis.benali@example.com',
       company: 'Développeur indépendant',
+      plan: 'nomade',
     });
     expect(await members.get(99)).toBeNull();
   });

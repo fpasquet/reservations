@@ -67,6 +67,7 @@ function Page({ children }: { children: ReactNode }) {
 }
 
 function MemberBookings({ member }: { member: Member }) {
+  const { reloadCredit } = useMember();
   const bookings = useResource(`member-bookings:${member.id}`, () => getMemberBookings(member.id));
   const now = useNow();
   const notify = useToast();
@@ -94,6 +95,7 @@ function MemberBookings({ member }: { member: Member }) {
       notify({ tone: 'success', title: 'Réservation annulée', description: describe(toCancel) });
       setToCancel(null);
       bookings.reload();
+      reloadCredit();
     } catch (error) {
       notify({ tone: 'danger', title: 'Annulation impossible', description: messageFor(error) });
     } finally {

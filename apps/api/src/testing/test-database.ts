@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import type { Plan } from '../members/member.js';
 import type { Equipment } from '../rooms/room.js';
 
 /** Vide les tables entre deux tests ; les identifiants repartent de 1. */
@@ -17,11 +18,16 @@ export async function insertRoom(
   return rows[0]!.id;
 }
 
-export async function insertMember(db: pg.Pool, fullName: string, company = 'La Verrière'): Promise<number> {
+export async function insertMember(
+  db: pg.Pool,
+  fullName: string,
+  company = 'La Verrière',
+  plan: Plan = 'nomade',
+): Promise<number> {
   const email = `${fullName.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`;
   const { rows } = await db.query<{ id: number }>(
-    'insert into member (full_name, email, company) values ($1, $2, $3) returning id',
-    [fullName, email, company],
+    'insert into member (full_name, email, company, plan) values ($1, $2, $3, $4) returning id',
+    [fullName, email, company, plan],
   );
   return rows[0]!.id;
 }

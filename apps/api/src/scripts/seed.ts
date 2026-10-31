@@ -91,13 +91,13 @@ const rooms: SeedRoom[] = [
 ];
 
 const members = [
-  { fullName: 'Camille Martin', email: 'camille.martin@example.com', company: 'Studio Ondes' },
-  { fullName: 'Yanis Benali', email: 'yanis.benali@example.com', company: 'Développeur indépendant' },
-  { fullName: 'Léa Fournier', email: 'lea.fournier@example.com', company: 'Atelier Pivot' },
-  { fullName: 'Thomas Nguyen', email: 'thomas.nguyen@example.com', company: 'Nguyen Conseil' },
-  { fullName: 'Inès Moreau', email: 'ines.moreau@example.com', company: 'Cartographik' },
-  { fullName: 'Hugo Lefèvre', email: 'hugo.lefevre@example.com', company: 'Cabinet Lefèvre' },
-  { fullName: "Zoé N'Diaye", email: 'zoe.ndiaye@example.com', company: 'Maison Baobab' },
+  { fullName: 'Camille Martin', email: 'camille.martin@example.com', company: 'Studio Ondes', plan: 'resident' },
+  { fullName: 'Yanis Benali', email: 'yanis.benali@example.com', company: 'Développeur indépendant', plan: 'nomade' },
+  { fullName: 'Léa Fournier', email: 'lea.fournier@example.com', company: 'Atelier Pivot', plan: 'equipe' },
+  { fullName: 'Thomas Nguyen', email: 'thomas.nguyen@example.com', company: 'Nguyen Conseil', plan: 'resident' },
+  { fullName: 'Inès Moreau', email: 'ines.moreau@example.com', company: 'Cartographik', plan: 'nomade' },
+  { fullName: 'Hugo Lefèvre', email: 'hugo.lefevre@example.com', company: 'Cabinet Lefèvre', plan: 'resident' },
+  { fullName: "Zoé N'Diaye", email: 'zoe.ndiaye@example.com', company: 'Maison Baobab', plan: 'nomade' },
 ];
 
 /** [jour depuis le lundi de cette semaine, salle, membre (1 à 7), début, fin, titre, participants, annulée] */
@@ -318,10 +318,11 @@ try {
     );
   }
   for (const member of members) {
-    await client.query('insert into member (full_name, email, company) values ($1, $2, $3)', [
+    await client.query('insert into member (full_name, email, company, plan) values ($1, $2, $3, $4)', [
       member.fullName,
       member.email,
       member.company,
+      member.plan,
     ]);
   }
   for (const row of rows) {

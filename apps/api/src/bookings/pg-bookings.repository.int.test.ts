@@ -63,6 +63,40 @@ describe('PgBookingsRepository.create', () => {
   });
 });
 
+describe('PgBookingsRepository.create overlaps', () => {
+  it('lets only one of two concurrent requests take the same slot', async () => {
+    const results = await Promise.allSettled([
+      book({ from: 600, to: 660, memberId: camille }),
+      book({ from: 600, to: 660, memberId: yanis }),
+    ]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find((r) => r.status === 'rejected');
+    expect(rejected?.reason).toMatchObject({ code: 'ROOM_ALREADY_BOOKED' });
+  });
+
+  it('refuses a partial overlap in the same room', async () => {
+    await book({ from: 600, to: 660 });
+    await expect(book({ from: 630, to: 690 })).rejects.toMatchObject({ code: 'ROOM_ALREADY_BOOKED' });
+  });
+
+  it('accepts a booking that starts when the previous one ends', async () => {
+    await book({ from: 600, to: 660 });
+    await expect(book({ from: 660, to: 720 })).resolves.toBeDefined();
+    await expect(book({ from: 540, to: 600 })).resolves.toBeDefined();
+  });
+
+  it('accepts the same slot in another room', async () => {
+    await book({ from: 600, to: 660 });
+    await expect(book({ from: 600, to: 660, roomId: atelier })).resolves.toBeDefined();
+  });
+
+  it('does not let a cancelled booking block the slot', async () => {
+    const first = await book({ from: 600, to: 660 });
+    await bookings.cancel(first.id, at(0));
+    await expect(book({ from: 600, to: 660 })).resolves.toBeDefined();
+  });
+});
+
 describe('PgBookingsRepository.listBetween', () => {
   it('gives the bookings that overlap the interval, by start then by room', async () => {
     await book({ from: 14 * 60, to: 15 * 60, title: 'Après-midi' });

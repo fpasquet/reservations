@@ -41,7 +41,8 @@ export function checkSlot({ startsAt, endsAt }: Slot, now: Date): void {
   if (!isOpenAt(start.minutes)) {
     throw new DomainError('OUTSIDE_OPENING_HOURS', 'the space is open from 8:00 to 20:00', 'startsAt');
   }
-  if (end.date !== start.date || !isOpenAt(end.minutes)) {
+  // La fin peut tomber pile à la fermeture, mais pas avant l'ouverture ni après la fermeture.
+  if (end.date !== start.date || end.minutes <= OPENING_TIME || end.minutes > CLOSING_TIME) {
     throw new DomainError('OUTSIDE_OPENING_HOURS', 'the space is open from 8:00 to 20:00', 'endsAt');
   }
   if (endsAt.getTime() - startsAt.getTime() > MAX_DURATION_MINUTES * MINUTE) {

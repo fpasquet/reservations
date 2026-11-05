@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+# esbuild (via tsx, pour make dev) installe son binaire au postinstall.
+onlyBuiltDependencies:
+  - esbuild
+# unrs-resolver (résolution des imports pour ESLint) a ses binaires précompilés : rien à construire.
+ignoredBuiltDependencies:
+  - unrs-resolver

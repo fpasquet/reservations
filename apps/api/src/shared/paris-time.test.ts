@@ -34,3 +34,41 @@ describe('nextDate', () => {
     expect(nextDate('2026-12-31')).toBe('2027-01-01');
   });
 });
+
+describe('daylight saving days', () => {
+  it('reads 8h00 and 20h00 with the offset in force each changeover day', () => {
+    expect(parisInstant('2026-03-29', 8 * 60).toISOString()).toBe('2026-03-29T06:00:00.000Z');
+    expect(parisInstant('2026-03-29', 20 * 60).toISOString()).toBe('2026-03-29T18:00:00.000Z');
+    expect(parisInstant('2026-10-25', 8 * 60).toISOString()).toBe('2026-10-25T07:00:00.000Z');
+    expect(parisInstant('2026-10-25', 20 * 60).toISOString()).toBe('2026-10-25T19:00:00.000Z');
+  });
+
+  it('covers a 23 h day in March and a 25 h day in October', () => {
+    const hours = (date: string) => {
+      const { from, to } = parisDayRange(date);
+      return (to.getTime() - from.getTime()) / 3_600_000;
+    };
+    expect(hours('2026-03-29')).toBe(23);
+    expect(hours('2026-10-25')).toBe(25);
+  });
+
+  it('round-trips every quarter hour of the opening hours', () => {
+    for (const date of ['2026-03-29', '2026-10-25']) {
+      for (let minutes = 8 * 60; minutes <= 20 * 60; minutes += 15) {
+        expect(parisDateTime(parisInstant(date, minutes))).toEqual({ date, minutes });
+      }
+    }
+  });
+
+  it.each(['America/Montreal', 'Asia/Tokyo'])('does not depend on the server zone (%s)', (zone) => {
+    const initial = process.env.TZ;
+    process.env.TZ = zone;
+    try {
+      expect(parisInstant('2026-03-29', 8 * 60).toISOString()).toBe('2026-03-29T06:00:00.000Z');
+      expect(parisDateTime(new Date('2026-10-25T19:00:00Z'))).toEqual({ date: '2026-10-25', minutes: 1200 });
+    } finally {
+      if (initial === undefined) delete process.env.TZ;
+      else process.env.TZ = initial;
+    }
+  });
+});

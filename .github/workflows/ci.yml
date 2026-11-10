@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Directement avec pnpm, plus rapide que de construire les images Docker.
+  checks:
+    name: Format, lint, types, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        run: pnpm format:check
+      - name: Lint
+        run: pnpm lint
+      - name: Check types
+        run: pnpm typecheck
+      - name: Run unit tests
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
+  # Par le Makefile et Docker Compose, comme en développement : l'environnement est vérifié en même temps.
+  database:
+    name: Migrations, seed and database tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Install dependencies in the containers
+        run: make install
+      - name: Apply migrations
+        run: make db-migrate
+      - name: Apply migrations again without changes
+        run: make db-migrate | tee migrate.log && grep -q 'Database is up to date.' migrate.log
+      - name: Load the sample data
+        run: make db-seed
+      - name: Run the database tests
+        run: make test-db
+      - name: Stop the containers
+        if: always()
+        run: make down

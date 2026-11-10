@@ -72,6 +72,7 @@ const shortDayFormat = new Intl.DateTimeFormat('fr-FR', {
   month: 'short',
   timeZone: 'UTC',
 });
+const columnDayFormat = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', timeZone: 'UTC' });
 const yearFormat = new Intl.DateTimeFormat('fr-FR', { year: 'numeric', timeZone: 'UTC' });
 
 /** « jeudi 29 octobre », avec l'année si elle n'est pas celle de `reference`. */
@@ -85,6 +86,11 @@ export function formatDay(date: string, reference?: string): string {
 /** « jeu. 29 oct. » */
 export function formatShortDay(date: string): string {
   return shortDayFormat.format(atNoon(date));
+}
+
+/** « jeu. 29 » */
+export function formatColumnDay(date: string): string {
+  return columnDayFormat.format(atNoon(date));
 }
 
 /** « 9h00 », « 14h30 » */

@@ -37,6 +37,11 @@ const FIELD_MESSAGES: Record<string, string> = {
   roomId: 'Choisissez une salle.',
 };
 
+/** Le créneau est pris (réservé ou gardé pour un autre membre) : on peut s'inscrire en liste d'attente. */
+export function isSlotTaken(error: unknown): boolean {
+  return error instanceof ApiError && (error.code === 'ROOM_ALREADY_BOOKED' || error.code === 'SLOT_ON_HOLD');
+}
+
 /** Le message à afficher pour une erreur de l'API. */
 export function messageFor(error: unknown): string {
   if (!(error instanceof ApiError)) return MESSAGES['UNEXPECTED_ERROR'] ?? '';

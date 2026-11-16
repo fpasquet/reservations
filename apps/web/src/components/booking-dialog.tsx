@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from 'react';
 import { ApiError, createBooking, joinWaitlist } from '@/lib/api';
-import { messageFor } from '@/lib/error-messages';
+import { isSlotTaken, messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisInstant, todayInParis } from '@/lib/paris-time';
 import { seatsLabel } from '@/lib/rooms';
 import { CLOSING_TIME, DEFAULT_DURATION, OPENING_TIME, STEP_MINUTES, timeOptions } from '@/lib/schedule';
@@ -142,11 +142,12 @@ function BookingForm({
       onBooked(booking);
     } catch (error) {
       const field = error instanceof ApiError && error.field ? API_FIELDS[error.field] : undefined;
-      if (field && !(error instanceof ApiError && error.code === 'ROOM_ALREADY_BOOKED')) {
+      const taken = isSlotTaken(error);
+      if (field && !taken) {
         setErrors({ [field]: messageFor(error) });
       } else {
         setFormError(messageFor(error));
-        setSlotTaken(error instanceof ApiError && error.code === 'ROOM_ALREADY_BOOKED');
+        setSlotTaken(taken);
       }
     } finally {
       setSubmitting(false);

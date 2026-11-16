@@ -22,6 +22,13 @@ const MESSAGES: Record<string, string> = {
   NOT_YOUR_BOOKING: 'Seule la personne qui a réservé peut annuler.',
   ALREADY_STARTED: 'Cette réservation a déjà commencé, elle ne peut plus être annulée.',
   ALREADY_CANCELLED: 'Cette réservation est déjà annulée.',
+  WAITLIST_ENTRY_NOT_FOUND: 'Cette inscription n’existe plus : le délai de confirmation est peut-être dépassé.',
+  NOT_YOUR_WAITLIST_ENTRY: 'Seule la personne inscrite peut modifier cette inscription.',
+  SLOT_AVAILABLE: 'Ce créneau est libre, vous pouvez le réserver directement.',
+  SLOT_ON_HOLD:
+    'Ce créneau vient de se libérer : il est proposé pendant 30 minutes à la première personne en liste d’attente.',
+  ALREADY_ON_WAITLIST: 'Vous êtes déjà sur liste d’attente pour ce créneau.',
+  NOT_OFFERED: 'Ce créneau ne vous a pas encore été proposé.',
 };
 
 const FIELD_MESSAGES: Record<string, string> = {

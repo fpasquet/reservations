@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isCancellable, splitByTime } from './bookings';
-import type { Booking } from './types';
+import { canConfirm, isCancellable, splitByTime, upcomingEntries } from './bookings';
+import type { Booking, WaitlistEntry } from './types';
 
 const now = new Date('2026-11-03T09:00:00Z');
 
@@ -43,5 +43,35 @@ describe('isCancellable', () => {
     expect(isCancellable(booking(1, '2026-11-03T10:00:00Z', '2026-11-03T11:00:00Z', '2026-11-02T10:00:00Z'), now)).toBe(
       false,
     );
+  });
+});
+
+describe('waitlist entries', () => {
+  const entry = (id: number, startsAt: string, offerExpiresAt: string | null = null): WaitlistEntry => ({
+    id,
+    room: { id: 1, name: 'La Serre' },
+    member: { id: 1, fullName: 'Camille Martin' },
+    title: `Inscription ${id}`,
+    attendees: null,
+    startsAt,
+    endsAt: startsAt,
+    createdAt: '2026-10-30T10:00:00Z',
+    offeredAt: offerExpiresAt && '2026-11-03T08:30:00Z',
+    offerExpiresAt,
+  });
+
+  it('keeps the entries to come, the closest first', () => {
+    const entries = [
+      entry(1, '2026-11-05T09:00:00Z'),
+      entry(2, '2026-11-02T09:00:00Z'),
+      entry(3, '2026-11-04T09:00:00Z'),
+    ];
+    expect(upcomingEntries(entries, now).map((e) => e.id)).toEqual([3, 1]);
+  });
+
+  it('lets the member confirm only before the offer expires', () => {
+    expect(canConfirm(entry(1, '2026-11-04T09:00:00Z'), now)).toBe(false);
+    expect(canConfirm(entry(1, '2026-11-04T09:00:00Z', '2026-11-03T09:10:00Z'), now)).toBe(true);
+    expect(canConfirm(entry(1, '2026-11-04T09:00:00Z', '2026-11-03T08:59:00Z'), now)).toBe(false);
   });
 });

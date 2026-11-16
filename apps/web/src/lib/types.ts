@@ -30,6 +30,20 @@ export interface Booking {
   cancelledAt: string | null;
 }
 
+export interface WaitlistEntry {
+  id: number;
+  room: { id: number; name: string };
+  member: { id: number; fullName: string };
+  title: string;
+  attendees: number | null;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+  /** Le créneau s'est libéré : le membre a jusqu'à `offerExpiresAt` pour confirmer. */
+  offeredAt: string | null;
+  offerExpiresAt: string | null;
+}
+
 export interface BookingRequest {
   roomId: number;
   title: string;

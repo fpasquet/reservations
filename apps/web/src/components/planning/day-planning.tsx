@@ -14,7 +14,6 @@ import { EmptyState, ErrorState, LoadingLabel, Skeleton } from '../ui/feedback';
 import { CalendarIcon, PlusIcon } from '../ui/icons';
 import { DateNav } from './date-nav';
 import { PlanningGrid } from './planning-grid';
-import { planningHref, ViewSwitch } from './view-switch';
 
 export function DayPlanning({ date, today }: { date: string; today: string }) {
   const router = useRouter();
@@ -27,7 +26,7 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
   const now = date < current.date ? CLOSING_TIME : isToday ? current.minutes : null;
 
   function navigate(next: string) {
-    router.push(planningHref('day', next, today), { scroll: false });
+    router.push(next === today ? '/' : `/?date=${next}`, { scroll: false });
   }
 
   function openBlankDraft() {
@@ -56,10 +55,7 @@ export function DayPlanning({ date, today }: { date: string; today: string }) {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <ViewSwitch view="day" date={date} today={today} />
-          <DateNav id="planning-date" date={date} today={today} onChange={navigate} />
-        </div>
+        <DateNav id="planning-date" date={date} today={today} onChange={navigate} />
         <p className="text-sm text-ink-subtle">Cliquez sur un créneau libre pour le réserver.</p>
       </div>
 

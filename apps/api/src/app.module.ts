@@ -12,16 +12,22 @@ import { PgRoomsRepository } from './rooms/pg-rooms.repository.js';
 import { RoomsController } from './rooms/rooms.controller.js';
 import { ROOMS_REPOSITORY } from './rooms/rooms.repository.js';
 import { CLOCK, clockFromEnv } from './shared/clock.js';
+import { PgWaitlistRepository } from './waitlist/pg-waitlist.repository.js';
+import { WaitlistController } from './waitlist/waitlist.controller.js';
+import { WAITLIST_REPOSITORY } from './waitlist/waitlist.repository.js';
+import { WaitlistService } from './waitlist/waitlist.service.js';
 
 @Module({
-  controllers: [HealthController, RoomsController, MembersController, BookingsController],
+  controllers: [HealthController, RoomsController, MembersController, BookingsController, WaitlistController],
   providers: [
     { provide: DATABASE, useFactory: () => connect() },
     { provide: CLOCK, useFactory: () => clockFromEnv() },
     { provide: ROOMS_REPOSITORY, useClass: PgRoomsRepository },
     { provide: MEMBERS_REPOSITORY, useClass: PgMembersRepository },
     { provide: BOOKINGS_REPOSITORY, useClass: PgBookingsRepository },
+    { provide: WAITLIST_REPOSITORY, useClass: PgWaitlistRepository },
     BookingsService,
+    WaitlistService,
   ],
 })
 export class AppModule {}

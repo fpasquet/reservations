@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
-  formatColumnDay,
   formatDay,
   formatMinutes,
   isIsoDate,
@@ -46,11 +45,5 @@ describe('times', () => {
     expect(formatMinutes(14 * 60 + 15)).toBe('14h15');
     expect(parseTime('09:45')).toBe(585);
     expect(toTimeValue(585)).toBe('09:45');
-  });
-});
-
-describe('formatColumnDay', () => {
-  it('gives the short weekday and the day number', () => {
-    expect(formatColumnDay('2026-11-10')).toBe('mar. 10');
   });
 });

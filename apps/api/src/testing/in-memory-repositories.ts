@@ -4,6 +4,8 @@ import type { Member } from '../members/member.js';
 import type { MembersRepository } from '../members/members.repository.js';
 import type { Room, RoomFilters } from '../rooms/room.js';
 import type { RoomsRepository } from '../rooms/rooms.repository.js';
+import type { NewWaitlistEntry, WaitlistEntry } from '../waitlist/waitlist-entry.js';
+import type { WaitlistRepository } from '../waitlist/waitlist.repository.js';
 
 /** Dépôts en mémoire, pour tester l'API sans Postgres ; ils suivent les requêtes SQL de leurs pendants. */
 export class InMemoryRoomsRepository implements RoomsRepository {
@@ -87,4 +89,62 @@ export class InMemoryBookingsRepository implements BookingsRepository {
   }
 }
 
+export class InMemoryWaitlistRepository implements WaitlistRepository {
+  readonly entries: WaitlistEntry[] = [];
+  private nextId = 1;
+
+  constructor(
+    private readonly rooms: Room[],
+    private readonly members: Member[],
+  ) {}
+
+  list(): Promise<WaitlistEntry[]> {
+    return Promise.resolve([...this.entries].sort(byCreation));
+  }
+
+  listByMember(memberId: number): Promise<WaitlistEntry[]> {
+    const entries = this.entries.filter((entry) => entry.member.id === memberId);
+    return Promise.resolve(entries.sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.id - b.id));
+  }
+
+  get(id: number): Promise<WaitlistEntry | null> {
+    return Promise.resolve(this.entries.find((entry) => entry.id === id) ?? null);
+  }
+
+  create(entry: NewWaitlistEntry, at: Date): Promise<WaitlistEntry> {
+    const room = this.rooms.find((candidate) => candidate.id === entry.roomId);
+    const member = this.members.find((candidate) => candidate.id === entry.memberId);
+    if (!room || !member) throw new Error('unknown room or member');
+    const created: WaitlistEntry = {
+      id: this.nextId++,
+      room: { id: room.id, name: room.name },
+      member: { id: member.id, fullName: member.fullName },
+      title: entry.title,
+      attendees: entry.attendees,
+      startsAt: entry.startsAt.toISOString(),
+      endsAt: entry.endsAt.toISOString(),
+      createdAt: at.toISOString(),
+      offeredAt: null,
+      offerExpiresAt: null,
+    };
+    this.entries.push(created);
+    return Promise.resolve(created);
+  }
+
+  offer(id: number, offeredAt: Date, expiresAt: Date): Promise<WaitlistEntry> {
+    const entry = this.entries.find((candidate) => candidate.id === id);
+    if (!entry) throw new Error(`waitlist entry ${id} vanished`);
+    entry.offeredAt = offeredAt.toISOString();
+    entry.offerExpiresAt = expiresAt.toISOString();
+    return Promise.resolve(entry);
+  }
+
+  remove(id: number): Promise<void> {
+    const index = this.entries.findIndex((entry) => entry.id === id);
+    if (index >= 0) this.entries.splice(index, 1);
+    return Promise.resolve();
+  }
+}
+
+const byCreation = (a: WaitlistEntry, b: WaitlistEntry) => a.createdAt.localeCompare(b.createdAt) || a.id - b.id;
 const byStart = (a: Booking, b: Booking) => a.startsAt.localeCompare(b.startsAt);

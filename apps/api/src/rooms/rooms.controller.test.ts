@@ -23,6 +23,11 @@ describe('rooms', () => {
     expect((response.body as { name: string }[]).map((room) => room.name)).toEqual(['Atelier', 'La Serre']);
   });
 
+  it('filters on the name, ignoring case and accents', async () => {
+    const response = await api.http.get('/rooms?name=SERRE');
+    expect((response.body as { name: string }[]).map((room) => room.name)).toEqual(['La Serre']);
+  });
+
   it('answers 400 with an error code on an invalid filter', async () => {
     const response = await api.http.get('/rooms?capacity=-2');
     expect(response.status).toBe(400);

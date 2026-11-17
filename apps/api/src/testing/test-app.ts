@@ -12,14 +12,10 @@ import { RoomsController } from '../rooms/rooms.controller.js';
 import { ROOMS_REPOSITORY } from '../rooms/rooms.repository.js';
 import { CLOCK, type Clock } from '../shared/clock.js';
 import { DomainErrorFilter } from '../shared/domain-error.filter.js';
-import { WaitlistController } from '../waitlist/waitlist.controller.js';
-import { WAITLIST_REPOSITORY } from '../waitlist/waitlist.repository.js';
-import { WaitlistService } from '../waitlist/waitlist.service.js';
 import {
   InMemoryBookingsRepository,
   InMemoryMembersRepository,
   InMemoryRoomsRepository,
-  InMemoryWaitlistRepository,
 } from './in-memory-repositories.js';
 
 export const rooms: Room[] = [
@@ -54,7 +50,6 @@ export interface TestApp {
   http: ReturnType<typeof request>;
   clock: { current: Date };
   bookings: InMemoryBookingsRepository;
-  waitlist: InMemoryWaitlistRepository;
 }
 
 /** L'API sur des dépôts en mémoire, à l'heure fixée par `clock.current`. */
@@ -62,13 +57,10 @@ export async function createTestApp(now: Date): Promise<TestApp> {
   const clock = { current: now };
   const fixedClock: Clock = { now: () => clock.current };
   const bookings = new InMemoryBookingsRepository(rooms, members, () => clock.current);
-  const waitlist = new InMemoryWaitlistRepository(rooms, members);
   const module = await Test.createTestingModule({
-    controllers: [RoomsController, MembersController, BookingsController, WaitlistController],
+    controllers: [RoomsController, MembersController, BookingsController],
     providers: [
       BookingsService,
-      WaitlistService,
-      { provide: WAITLIST_REPOSITORY, useValue: waitlist },
       { provide: CLOCK, useValue: fixedClock },
       { provide: ROOMS_REPOSITORY, useValue: new InMemoryRoomsRepository(rooms) },
       { provide: MEMBERS_REPOSITORY, useValue: new InMemoryMembersRepository(members) },
@@ -78,5 +70,5 @@ export async function createTestApp(now: Date): Promise<TestApp> {
   const app = module.createNestApplication({ logger: false });
   app.useGlobalFilters(new DomainErrorFilter());
   await app.init();
-  return { app, http: request(app.getHttpServer() as Parameters<typeof request>[0]), clock, bookings, waitlist };
+  return { app, http: request(app.getHttpServer() as Parameters<typeof request>[0]), clock, bookings };
 }

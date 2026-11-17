@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
-import { cancelBooking, confirmWaitlistEntry, getMemberBookings, getMemberWaitlist, leaveWaitlist } from '@/lib/api';
-import { canConfirm, isCancellable, splitByTime, upcomingEntries } from '@/lib/bookings';
+import { cancelBooking, getMemberBookings } from '@/lib/api';
+import { isCancellable, splitByTime } from '@/lib/bookings';
 import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisDateTime } from '@/lib/paris-time';
-import type { Booking, Member, WaitlistEntry } from '@/lib/types';
+import type { Booking, Member } from '@/lib/types';
 import { useNow } from '@/lib/use-now';
 import { useResource } from '@/lib/use-resource';
 import { useMember } from '../member-context';
@@ -24,7 +24,7 @@ type TabId = 'upcoming' | 'past';
 const monthFormat = new Intl.DateTimeFormat('fr-FR', { month: 'short', timeZone: 'Europe/Paris' });
 const dayNumberFormat = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', timeZone: 'Europe/Paris' });
 
-function describe(booking: Booking | WaitlistEntry): string {
+function describe(booking: Booking): string {
   const start = parisDateTime(new Date(booking.startsAt));
   const end = parisDateTime(new Date(booking.endsAt));
   return `${booking.room.name}, ${formatDay(start.date)} de ${formatMinutes(start.minutes)} à ${formatMinutes(end.minutes)}`;
@@ -68,13 +68,11 @@ function Page({ children }: { children: ReactNode }) {
 
 function MemberBookings({ member }: { member: Member }) {
   const bookings = useResource(`member-bookings:${member.id}`, () => getMemberBookings(member.id));
-  const waitlist = useResource(`member-waitlist:${member.id}`, () => getMemberWaitlist(member.id));
   const now = useNow();
   const notify = useToast();
   const [tab, setTab] = useState<TabId>('upcoming');
   const [toCancel, setToCancel] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [busyEntry, setBusyEntry] = useState<number | null>(null);
 
   if (bookings.status === 'loading') return <ListSkeleton />;
   if (bookings.status === 'error') {
@@ -102,27 +100,6 @@ function MemberBookings({ member }: { member: Member }) {
       setCancelling(false);
     }
   }
-
-  async function answer(entry: WaitlistEntry, action: 'confirm' | 'leave') {
-    setBusyEntry(entry.id);
-    try {
-      if (action === 'confirm') {
-        await confirmWaitlistEntry(member.id, entry.id);
-        notify({ tone: 'success', title: 'Salle réservée', description: describe(entry) });
-      } else {
-        await leaveWaitlist(member.id, entry.id);
-        notify({ tone: 'success', title: 'Inscription retirée', description: describe(entry) });
-      }
-    } catch (error) {
-      notify({ tone: 'danger', title: 'Action impossible', description: messageFor(error) });
-    } finally {
-      setBusyEntry(null);
-      bookings.reload();
-      waitlist.reload();
-    }
-  }
-
-  const entries = waitlist.status === 'ready' ? upcomingEntries(waitlist.data, now) : [];
 
   return (
     <Page>
@@ -165,16 +142,6 @@ function MemberBookings({ member }: { member: Member }) {
                 />
               ))}
             </ul>
-          )}
-          {tab === 'upcoming' && (
-            <WaitlistSection
-              entries={entries}
-              failed={waitlist.status === 'error'}
-              now={now}
-              busyEntry={busyEntry}
-              onAnswer={(entry, action) => void answer(entry, action)}
-              onRetry={waitlist.reload}
-            />
           )}
         </TabPanel>
       </div>
@@ -255,79 +222,6 @@ function BookingItem({
         </div>
       </Card>
     </li>
-  );
-}
-
-const timeFormat = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
-
-function WaitlistSection({
-  entries,
-  failed,
-  now,
-  busyEntry,
-  onAnswer,
-  onRetry,
-}: {
-  entries: WaitlistEntry[];
-  failed: boolean;
-  now: Date;
-  busyEntry: number | null;
-  onAnswer: (entry: WaitlistEntry, action: 'confirm' | 'leave') => void;
-  onRetry: () => void;
-}) {
-  if (failed)
-    return <ErrorState message="Vos inscriptions sur liste d’attente n’ont pas pu être chargées." onRetry={onRetry} />;
-  if (entries.length === 0) return null;
-  return (
-    <section aria-labelledby="my-waitlist" className="mt-6">
-      <h2 id="my-waitlist" className="mb-3 text-lg font-semibold tracking-tight">
-        Sur liste d’attente
-      </h2>
-      <ul className="flex flex-col gap-3">
-        {entries.map((entry) => {
-          const offered = canConfirm(entry, now);
-          const start = parisDateTime(new Date(entry.startsAt));
-          const end = parisDateTime(new Date(entry.endsAt));
-          return (
-            <li key={entry.id}>
-              <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate font-medium">{entry.title}</h3>
-                    {offered ? <Badge tone="success">Créneau libéré</Badge> : <Badge tone="warning">En attente</Badge>}
-                  </div>
-                  <p className="mt-0.5 text-sm text-ink-muted">
-                    <span className="first-letter:uppercase">{formatDay(start.date)}</span>,{' '}
-                    {formatMinutes(start.minutes)} – {formatMinutes(end.minutes)} · {entry.room.name}
-                  </p>
-                  {offered && entry.offerExpiresAt && (
-                    <p className="mt-1 text-sm">
-                      Le créneau s’est libéré : confirmez avant {timeFormat.format(new Date(entry.offerExpiresAt))}.
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2 self-start sm:self-center">
-                  {offered && (
-                    <Button size="sm" disabled={busyEntry === entry.id} onClick={() => onAnswer(entry, 'confirm')}>
-                      Confirmer<span className="sr-only"> la réservation « {entry.title} »</span>
-                    </Button>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={busyEntry === entry.id}
-                    onClick={() => onAnswer(entry, 'leave')}
-                  >
-                    {offered ? 'Renoncer' : 'Me retirer'}
-                    <span className="sr-only"> de la liste d’attente « {entry.title} »</span>
-                  </Button>
-                </div>
-              </Card>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
   );
 }
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { type FormEvent, useState } from 'react';
-import { ApiError, createBooking, joinWaitlist } from '@/lib/api';
-import { isSlotTaken, messageFor } from '@/lib/error-messages';
+import { ApiError, createBooking } from '@/lib/api';
+import { messageFor } from '@/lib/error-messages';
 import { formatDay, formatMinutes, parisInstant, todayInParis } from '@/lib/paris-time';
 import { seatsLabel } from '@/lib/rooms';
 import { CLOSING_TIME, DEFAULT_DURATION, OPENING_TIME, STEP_MINUTES, timeOptions } from '@/lib/schedule';
@@ -88,7 +88,6 @@ function BookingForm({
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [slotTaken, setSlotTaken] = useState(false);
 
   const room = rooms.find((candidate) => String(candidate.id) === roomId);
 
@@ -111,18 +110,9 @@ function BookingForm({
     return found;
   }
 
-  const request = (target: Room) => ({
-    roomId: target.id,
-    title: title.trim(),
-    attendees: attendees === '' ? null : Number(attendees),
-    startsAt: parisInstant(date, start).toISOString(),
-    endsAt: parisInstant(date, end).toISOString(),
-  });
-
   async function submit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
-    setSlotTaken(false);
     if (!member) {
       setFormError(messageFor(new ApiError(400, 'MISSING_MEMBER')));
       return;
@@ -133,7 +123,13 @@ function BookingForm({
 
     setSubmitting(true);
     try {
-      const booking = await createBooking(member.id, request(room));
+      const booking = await createBooking(member.id, {
+        roomId: room.id,
+        title: title.trim(),
+        attendees: attendees === '' ? null : Number(attendees),
+        startsAt: parisInstant(date, start).toISOString(),
+        endsAt: parisInstant(date, end).toISOString(),
+      });
       notify({
         tone: 'success',
         title: 'Salle réservée',
@@ -142,32 +138,11 @@ function BookingForm({
       onBooked(booking);
     } catch (error) {
       const field = error instanceof ApiError && error.field ? API_FIELDS[error.field] : undefined;
-      const taken = isSlotTaken(error);
-      if (field && !taken) {
+      if (field && !(error instanceof ApiError && error.code === 'ROOM_ALREADY_BOOKED')) {
         setErrors({ [field]: messageFor(error) });
       } else {
         setFormError(messageFor(error));
-        setSlotTaken(taken);
       }
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function joinQueue() {
-    if (!member || !room) return;
-    setSubmitting(true);
-    try {
-      await joinWaitlist(member.id, request(room));
-      notify({
-        tone: 'success',
-        title: 'Inscrit sur liste d’attente',
-        description: `${room.name}, ${formatDay(date)} de ${formatMinutes(start)} à ${formatMinutes(end)}. Vous serez prévenu dans « Mes réservations » si le créneau se libère.`,
-      });
-      onCancel();
-    } catch (error) {
-      setFormError(messageFor(error));
-      setSlotTaken(false);
     } finally {
       setSubmitting(false);
     }
@@ -181,14 +156,7 @@ function BookingForm({
       {formError && (
         <div role="alert" className="flex gap-2 rounded-control bg-danger-soft p-3 text-sm text-danger">
           <AlertIcon className="mt-0.5 size-4 shrink-0" />
-          <div className="flex flex-col items-start gap-2">
-            <p>{formError}</p>
-            {slotTaken && (
-              <Button variant="secondary" size="sm" onClick={() => void joinQueue()} disabled={submitting}>
-                Me prévenir si le créneau se libère
-              </Button>
-            )}
-          </div>
+          <p>{formError}</p>
         </div>
       )}
 

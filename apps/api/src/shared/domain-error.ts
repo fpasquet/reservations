@@ -17,13 +17,7 @@ export type ErrorCode =
   | 'ROOM_ALREADY_BOOKED'
   | 'NOT_YOUR_BOOKING'
   | 'ALREADY_STARTED'
-  | 'ALREADY_CANCELLED'
-  | 'WAITLIST_ENTRY_NOT_FOUND'
-  | 'NOT_YOUR_WAITLIST_ENTRY'
-  | 'SLOT_AVAILABLE'
-  | 'SLOT_ON_HOLD'
-  | 'ALREADY_ON_WAITLIST'
-  | 'NOT_OFFERED';
+  | 'ALREADY_CANCELLED';
 
 const STATUS: Partial<Record<ErrorCode, number>> = {
   ROOM_NOT_FOUND: 404,
@@ -32,12 +26,6 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   NOT_YOUR_BOOKING: 403,
   ROOM_ALREADY_BOOKED: 409,
   ALREADY_CANCELLED: 409,
-  WAITLIST_ENTRY_NOT_FOUND: 404,
-  NOT_YOUR_WAITLIST_ENTRY: 403,
-  SLOT_AVAILABLE: 409,
-  SLOT_ON_HOLD: 409,
-  ALREADY_ON_WAITLIST: 409,
-  NOT_OFFERED: 409,
 };
 
 /** Une règle métier refuse la demande ; `field` désigne le champ en cause, s'il y en a un. */

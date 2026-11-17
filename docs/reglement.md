@@ -61,13 +61,6 @@ Tarifs horaires hors taxes :
 - On ne réserve pas un créneau déjà passé.
 - Chaque réservation porte un titre, visible de tous les membres sur le planning.
 
-### Liste d'attente
-
-Quand le créneau voulu est déjà pris, le membre peut s'inscrire sur **liste d'attente**. Si la réservation est annulée,
-le premier inscrit est prévenu dans « Mes réservations » et a **30 minutes pour confirmer** ; passé ce délai, le créneau
-est proposé à l'inscrit suivant. Pendant ces 30 minutes, personne d'autre ne peut réserver le créneau. Une inscription
-disparaît quand le créneau est passé.
-
 ## 5. Arrivée et salles libérées
 
 Le membre signale son arrivée à l'accueil au début de sa réservation. **Une réservation dont l'arrivée n'a pas été

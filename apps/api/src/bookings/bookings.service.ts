@@ -4,7 +4,6 @@ import { ROOMS_REPOSITORY, type RoomsRepository } from '../rooms/rooms.repositor
 import { CLOCK, type Clock } from '../shared/clock.js';
 import { DomainError } from '../shared/domain-error.js';
 import { parisDayRange } from '../shared/paris-time.js';
-import { WaitlistService } from '../waitlist/waitlist.service.js';
 import type { Booking, BookingRequest } from './booking.js';
 import { checkCancellation, checkCapacity, checkSlot, overlaps } from './booking-rules.js';
 import { BOOKINGS_REPOSITORY, type BookingsRepository } from './bookings.repository.js';
@@ -16,7 +15,6 @@ export class BookingsService {
     @Inject(ROOMS_REPOSITORY) private readonly rooms: RoomsRepository,
     @Inject(MEMBERS_REPOSITORY) private readonly members: MembersRepository,
     @Inject(CLOCK) private readonly clock: Clock,
-    @Inject(WaitlistService) private readonly waitlist: WaitlistService,
   ) {}
 
   /** Le planning d'une journée (YYYY-MM-DD, à Paris), de toutes les salles ou d'une seule. */
@@ -49,11 +47,6 @@ export class BookingsService {
       throw new DomainError('ROOM_ALREADY_BOOKED', `${room.name} is already booked at that time`, 'startsAt');
     }
 
-    // Un créneau proposé à la liste d'attente est gardé pour son destinataire.
-    if (await this.waitlist.isHeld(room.id, request)) {
-      throw new DomainError('SLOT_ON_HOLD', `${room.name} is held for a member of the waitlist`, 'startsAt');
-    }
-
     return this.bookings.create({ ...request, memberId });
   }
 
@@ -62,8 +55,6 @@ export class BookingsService {
     if (!booking) throw new DomainError('BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
     const now = this.clock.now();
     checkCancellation(booking, memberId, now);
-    const cancelled = await this.bookings.cancel(bookingId, now);
-    await this.waitlist.refresh();
-    return cancelled;
+    return this.bookings.cancel(bookingId, now);
   }
 }

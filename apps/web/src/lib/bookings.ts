@@ -1,9 +1,9 @@
 import type { Booking } from './types';
 
-/** Les réservations d'un membre, à venir (de la plus proche à la plus lointaine) et passées (de la plus récente). */
+/** Les réservations d'un membre, à venir (de la plus proche à la plus lointaine, y compris celles en cours) et passées (de la plus récente). */
 export function splitByTime(bookings: Booking[], now: Date): { upcoming: Booking[]; past: Booking[] } {
   const upcoming = bookings
-    .filter((booking) => new Date(booking.startsAt) > now)
+    .filter((booking) => new Date(booking.endsAt) > now)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const past = bookings
     .filter((booking) => !upcoming.includes(booking))

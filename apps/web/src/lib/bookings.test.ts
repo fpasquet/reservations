@@ -28,6 +28,13 @@ describe('splitByTime', () => {
     expect(splitByTime([tomorrow, yesterday, later], now).upcoming.map((b) => b.id)).toEqual([3, 2]);
   });
 
+  it('keeps an ongoing booking among those to come until it ends', () => {
+    const ongoing = booking(5, '2026-11-03T08:00:00Z', '2026-11-03T10:00:00Z');
+    const split = splitByTime([ongoing, yesterday], now);
+    expect(split.upcoming.map((b) => b.id)).toEqual([5]);
+    expect(split.past.map((b) => b.id)).toEqual([1]);
+  });
+
   it('lists the past bookings, the most recent first', () => {
     expect(splitByTime([lastWeek, tomorrow, yesterday], now).past.map((b) => b.id)).toEqual([1, 4]);
   });

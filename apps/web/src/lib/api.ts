@@ -51,12 +51,14 @@ async function request<T>(path: string, { method = 'GET', body, memberId }: Requ
 export interface RoomFilters {
   capacity?: number;
   equipment?: Equipment[];
+  name?: string;
 }
 
-export function getRooms({ capacity, equipment = [] }: RoomFilters = {}): Promise<Room[]> {
+export function getRooms({ capacity, equipment = [], name }: RoomFilters = {}): Promise<Room[]> {
   const query = new URLSearchParams();
   if (capacity) query.set('capacity', String(capacity));
   if (equipment.length > 0) query.set('equipment', equipment.join(','));
+  if (name) query.set('name', name);
   const search = query.toString();
   return request<Room[]>(`/rooms${search ? `?${search}` : ''}`);
 }

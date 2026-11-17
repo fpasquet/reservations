@@ -34,6 +34,19 @@ describe('PgRoomsRepository', () => {
     ]);
   });
 
+  it('keeps the rooms whose name contains the text, ignoring case and accents', async () => {
+    await insertRoom(db, { name: 'Salon Éclair', floor: 2, capacity: 6, equipment: [] });
+    expect((await rooms.list({ equipment: [], name: 'ECLAIR' })).map((room) => room.name)).toEqual(['Salon Éclair']);
+    expect((await rooms.list({ equipment: [], name: 'éCLa' })).map((room) => room.name)).toEqual(['Salon Éclair']);
+    expect((await rooms.list({ equipment: [], name: 'e' })).map((room) => room.name)).toEqual([
+      'Atelier',
+      'Cabine 1',
+      'La Serre',
+      'Salon Éclair',
+    ]);
+    expect(await rooms.list({ equipment: [], name: '100%' })).toEqual([]);
+  });
+
   it('keeps the rooms with every equipment asked', async () => {
     const found = await rooms.list({ equipment: ['screen', 'videoconference'] });
     expect(found.map((room) => room.name)).toEqual(['Atelier']);

@@ -22,12 +22,13 @@ const toRoom = (row: RoomRow): Room => ({ ...row });
 export class PgRoomsRepository implements RoomsRepository {
   constructor(@Inject(DATABASE) private readonly db: pg.Pool) {}
 
-  async list({ minCapacity, equipment }: RoomFilters): Promise<Room[]> {
+  async list({ minCapacity, equipment, name }: RoomFilters): Promise<Room[]> {
     const { rows } = await this.db.query<RoomRow>(
       `select ${COLUMNS} from room
        where capacity >= $1 and equipment @> $2::text[]
+         and ($3::text is null or strpos(lower(unaccent(name)), lower(unaccent($3::text))) > 0)
        order by floor, name`,
-      [minCapacity ?? 1, equipment],
+      [minCapacity ?? 1, equipment, name ?? null],
     );
     return rows.map(toRoom);
   }

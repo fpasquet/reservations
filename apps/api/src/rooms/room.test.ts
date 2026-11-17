@@ -9,6 +9,11 @@ describe('parseRoomFilters', () => {
     });
   });
 
+  it('reads the name, trimmed', () => {
+    expect(parseRoomFilters({ name: '  serre ' })).toEqual({ equipment: [], name: 'serre' });
+    expect(parseRoomFilters({ name: '  ' })).toEqual({ equipment: [] });
+  });
+
   it('has no filter by default', () => {
     expect(parseRoomFilters({})).toEqual({ equipment: [] });
   });

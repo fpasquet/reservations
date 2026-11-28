@@ -69,6 +69,18 @@ describe('bookings', () => {
       expect((await book({}, '2')).status).toBe(201);
     });
 
+    it('accepts a booking that ends at closing time', async () => {
+      const response = await book({ startsAt: at(tuesday, '19:00'), endsAt: at(tuesday, '20:00') });
+      expect(response.status).toBe(201);
+      expect(response.body).toMatchObject({ endsAt: '2026-11-03T19:00:00.000Z' });
+    });
+
+    it('refuses a booking that starts at closing time', async () => {
+      const response = await book({ startsAt: at(tuesday, '20:00'), endsAt: at(tuesday, '20:15') });
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({ code: 'OUTSIDE_OPENING_HOURS', field: 'startsAt' });
+    });
+
     it('answers 400 with the rule that refuses the booking', async () => {
       const response = await book({ attendees: 9 });
       expect(response.status).toBe(400);

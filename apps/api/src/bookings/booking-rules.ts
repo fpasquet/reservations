@@ -18,6 +18,8 @@ interface Slot {
 }
 
 const isOpenAt = (minutes: number): boolean => minutes >= OPENING_TIME && minutes < CLOSING_TIME;
+// Une réservation peut finir à l'instant de la fermeture, mais pas à l'ouverture.
+const canEndAt = (minutes: number): boolean => minutes > OPENING_TIME && minutes <= CLOSING_TIME;
 
 // Le décalage de Paris avec UTC est d'une heure ronde : un quart d'heure UTC est un quart d'heure de Paris.
 const isOnStep = (instant: Date): boolean => instant.getTime() % (STEP_MINUTES * MINUTE) === 0;
@@ -41,7 +43,7 @@ export function checkSlot({ startsAt, endsAt }: Slot, now: Date): void {
   if (!isOpenAt(start.minutes)) {
     throw new DomainError('OUTSIDE_OPENING_HOURS', 'the space is open from 8:00 to 20:00', 'startsAt');
   }
-  if (end.date !== start.date || !isOpenAt(end.minutes)) {
+  if (end.date !== start.date || !canEndAt(end.minutes)) {
     throw new DomainError('OUTSIDE_OPENING_HOURS', 'the space is open from 8:00 to 20:00', 'endsAt');
   }
   if (endsAt.getTime() - startsAt.getTime() > MAX_DURATION_MINUTES * MINUTE) {

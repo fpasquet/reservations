@@ -18,3 +18,19 @@ export function floorLabel(floor: number): string {
 export function seatsLabel(capacity: number): string {
   return capacity > 1 ? `${capacity} places` : `${capacity} place`;
 }
+
+/** Ramène un texte à une forme comparable : sans casse, sans accents, apostrophes typographiques unifiées. */
+function normalizeForSearch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[’‘]/g, "'")
+    .toLowerCase()
+    .trim();
+}
+
+/** Vrai si le nom de la salle contient la recherche, sans tenir compte de la casse ni des accents. */
+export function matchesRoomName(name: string, query: string): boolean {
+  const needle = normalizeForSearch(query);
+  return needle === '' || normalizeForSearch(name).includes(needle);
+}

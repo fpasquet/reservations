@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { getRooms } from '@/lib/api';
 import { messageFor } from '@/lib/error-messages';
-import { EQUIPMENT_LABELS } from '@/lib/rooms';
+import { EQUIPMENT_LABELS, matchesRoomName } from '@/lib/rooms';
 import { EQUIPMENT, type Equipment } from '@/lib/types';
 import { useResource } from '@/lib/use-resource';
 import { EQUIPMENT_ICONS } from '../equipment';
@@ -12,19 +12,22 @@ import { Card } from '../ui/card';
 import { cn } from '../ui/cn';
 import { EmptyState, ErrorState, LoadingLabel, Skeleton } from '../ui/feedback';
 import { LayersIcon } from '../ui/icons';
-import { Label } from '../ui/input';
+import { Input, Label } from '../ui/input';
 import { Select } from '../ui/select';
 import { RoomCard } from './room-card';
 
 const CAPACITIES = [2, 4, 6, 10, 15];
 
 export function RoomsBrowser() {
+  const [search, setSearch] = useState('');
   const [capacity, setCapacity] = useState<number | null>(null);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const rooms = useResource(`rooms:${capacity ?? ''}:${equipment.join(',')}`, () =>
     getRooms({ capacity: capacity ?? undefined, equipment }),
   );
-  const filtered = capacity !== null || equipment.length > 0;
+  const filtered = search.trim() !== '' || capacity !== null || equipment.length > 0;
+  // Neuf salles en tout : le nom se filtre dans le navigateur, sur la liste déjà filtrée par l'API.
+  const matching = rooms.status === 'ready' ? rooms.data.filter((room) => matchesRoomName(room.name, search)) : [];
 
   const toggle = (item: Equipment) =>
     setEquipment((current) =>
@@ -34,6 +37,7 @@ export function RoomsBrowser() {
     );
 
   const clear = () => {
+    setSearch('');
     setCapacity(null);
     setEquipment([]);
   };
@@ -45,7 +49,18 @@ export function RoomsBrowser() {
         <p className="mt-1 text-ink-muted">Neuf espaces, de la cabine pour un appel au salon pour vingt personnes.</p>
       </div>
 
-      <Card className="flex flex-col gap-4 p-4 md:flex-row md:items-end">
+      <Card className="flex flex-col gap-4 p-4 md:flex-row md:flex-wrap md:items-end">
+        <div className="flex flex-col gap-1.5 md:w-60">
+          <Label htmlFor="rooms-search">Nom</Label>
+          <Input
+            id="rooms-search"
+            type="search"
+            placeholder="Rechercher une salle"
+            autoComplete="off"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
         <div className="flex flex-col gap-1.5 md:w-52">
           <Label htmlFor="rooms-capacity">Capacité</Label>
           <Select
@@ -95,8 +110,7 @@ export function RoomsBrowser() {
       </Card>
 
       <p aria-live="polite" className="text-sm text-ink-muted">
-        {rooms.status === 'ready' &&
-          (rooms.data.length > 1 ? `${rooms.data.length} salles` : `${rooms.data.length} salle`)}
+        {rooms.status === 'ready' && (matching.length > 1 ? `${matching.length} salles` : `${matching.length} salle`)}
       </p>
 
       {rooms.status === 'error' ? (
@@ -108,11 +122,15 @@ export function RoomsBrowser() {
             <Skeleton key={index} className="h-72 rounded-card" />
           ))}
         </div>
-      ) : rooms.data.length === 0 ? (
+      ) : matching.length === 0 ? (
         <EmptyState
           icon={<LayersIcon className="size-6" />}
           title="Aucune salle ne correspond"
-          description="Essayez une capacité plus petite ou moins d’équipements."
+          description={
+            search.trim() !== ''
+              ? 'Vérifiez le nom recherché, ou essayez une capacité plus petite ou moins d’équipements.'
+              : 'Essayez une capacité plus petite ou moins d’équipements.'
+          }
           action={
             <Button variant="secondary" onClick={clear}>
               Effacer les filtres
@@ -121,7 +139,7 @@ export function RoomsBrowser() {
         />
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {rooms.data.map((room) => (
+          {matching.map((room) => (
             <li key={room.id}>
               <RoomCard room={room} />
             </li>

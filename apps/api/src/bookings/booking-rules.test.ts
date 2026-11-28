@@ -37,6 +37,17 @@ describe('checkSlot', () => {
     });
   });
 
+  it('accepts a slot that ends at closing time', () => {
+    expect(() => checkSlot(slot('19:00', '20:00'), now)).not.toThrow();
+  });
+
+  it('refuses a slot that starts at closing time', () => {
+    expect(errorOf(() => checkSlot(slot('20:00', '20:15'), now))).toMatchObject({
+      code: 'OUTSIDE_OPENING_HOURS',
+      field: 'startsAt',
+    });
+  });
+
   it('refuses a slot that ends after closing time', () => {
     expect(errorOf(() => checkSlot(slot('19:00', '20:15'), now))).toMatchObject({
       code: 'OUTSIDE_OPENING_HOURS',
